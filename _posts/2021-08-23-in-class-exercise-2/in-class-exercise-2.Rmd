@@ -33,3 +33,129 @@ for(p in packages){
   library(p, character.only = T)
 }
 ```
+
+The following reads the Master Plan 2014 Subzone Boundary shp file
+```{r}
+mpsz <- st_read(dsn = "/JunLonggggg/junlong-is415/Hands-on_Ex02/data/geospatial",
+                layer = "MP14_SUBZONE_WEB_PL")
+```
+The following reads the Cycling path shape file
+```{r}
+cyclingpath = st_read(dsn = "../../Hands-on_Ex02/data/geospatial",
+                      layer = "CyclingPath")
+cyclingpath
+```
+The following reads the aspatial data pre schools location
+```{r}
+preschool = st_read("../../Hands-on_Ex02/data/geospatial/pre-schools-location-kml.kml")
+```
+```{r}
+st_geometry(mpsz)
+```
+```{r}
+glimpse(mpsz)
+```
+```{r}
+head(mpsz, n = 5)
+```
+```{r}
+plot(mpsz) #What are the cases where this wont work?
+```
+```{r}
+plot(st_geometry(mpsz))
+```
+```{r}
+plot(mpsz["PLN_AREA_N"])
+```
+
+```{r}
+st_crs(mpsz)
+```
+```{r}
+mpsz3414 <- st_set_crs(mpsz, 3414)
+```
+```{r}
+st_crs(mpsz3414)
+```
+
+```{r}
+preschool3414 <- st_transform(preschool, crs = 3414)
+```
+
+```{r}
+st_crs(preschool3414)
+```
+```{r}
+st_geometry(preschool3414)
+```
+```{r}
+listings = read_csv("../../Hands-on_Ex02/data/aspatial/listings.csv")
+```
+```{r}
+glimpse(listings)
+```
+```{r}
+listings_sf = st_as_sf(listings,
+                       coords = c("longitude","latitude"),
+                       crs = 4326) %>% 
+  st_transform(crs = 3414)
+glimpse(listings_sf)
+```
+```{r}
+buffer_cycling = st_buffer(cyclingpath,dist=5,nQuadSegs = 30)
+```
+```{r}
+buffer_cycling$AREA = st_area(buffer_cycling)
+```
+```{r}
+sum(buffer_cycling$AREA)
+```
+```{r}
+mpsz3414$`PreSch Count` = lengths(st_intersects(mpsz3414,preschool3414))
+```
+
+```{r}
+summary(mpsz3414$`PreSch Count`)
+```
+```{r}
+top_n(mpsz3414,1,`PreSch Count`)
+```
+```{r}
+mpsz3414$Area = mpsz3414 %>% 
+  st_area()
+```
+```{r}
+mpsz3414 = mpsz3414 %>% 
+  mutate(`PreSch Density` = `PreSch Count`/Area * 1000000)
+```
+```{r}
+hist(mpsz3414$`PreSch Density`)
+```
+
+```{r}
+ggplot(data = mpsz3414,
+       aes(x=as.numeric(`PreSch Density`))) + 
+  geom_histogram(bins =20,
+                 color = "black",
+                 fill = "light blue") + 
+  labs(title = "Are pre-school evenly distributed in Singapore?",
+       subtitle = "There are many planning sub-zones with a single pre-school, on the other hand, there are two planning sub-zones with at least 20 pre-school",
+       x = "Pre-school density (per km sq)",
+       y = "Frequency")
+  
+```
+
+```{r}
+ggplot(data = mpsz3414,
+       aes(x = as.numeric(`PreSch Density`), 
+                          y= as.numeric(`PreSch Count`)))+
+  geom_point()+
+  labs(x = "Pre-school density (per km sq)",
+       y = "Pre-school count")
+  coord_cartesian(xlim=c(0,40),
+                  ylim = c(0,40))
+```
+
+
+
+

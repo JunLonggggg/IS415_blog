@@ -1,0 +1,226 @@
+---
+title: "In Class Exercise 3"
+author: "Toh Jun Long"
+date: "8/31/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+packages = c('sf', 'tmap', 'tidyverse')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+```{r}
+mpsz = st_read(dsn = "Hands-on_Ex03/data/geospatial",
+               layer = "MP14_SUBZONE_WEB_PL")
+mpsz
+```
+```{r}
+popdata = read_csv("Hands-on_Ex03/data/aspatial/respopagesextod2011to2020.csv")
+popdata
+```
+
+```{r}
+popdata2020 = popdata %>% 
+  filter(Time == 2020) %>% 
+  group_by(PA,SZ,AG) %>% 
+  summarise(`POP` = sum(`Pop`)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = AG,
+              values_from = POP) %>% 
+  mutate(YOUNG = rowSums(.[3:6])
+         + rowSums(.[12])) %>% 
+mutate(`ECONOMY ACTIVE` = rowSums(.[7:11]) +
+         rowSums(.[13:15])) %>% 
+mutate(`AGED` = rowSums(.[16:21])) %>% 
+mutate(`TOTAL` = rowSums(.[3:21])) %>% 
+mutate(`DEPENDENCY` = (`YOUNG` + `AGED`)/`ECONOMY ACTIVE`) %>% 
+  select(`PA`,`SZ`,`YOUNG`,`ECONOMY ACTIVE`, `AGED`, `TOTAL`,`DEPENDENCY`)
+popdata2020
+
+```
+
+```{r}
+popdata2020 = popdata2020 %>% 
+  mutate_at(.vars = vars(PA,SZ),
+            .funs = funs(toupper)) %>% 
+  filter(`ECONOMY ACTIVE`> 0)
+```
+```{r}
+mpsz_pop2020 = left_join(mpsz, popdata2020,
+                         by = c('SUBZONE_N' = "SZ"))
+```
+```{r}
+aged_quantile = tm_shape(mpsz_pop2020) +
+  tm_polygons("AGED",
+              style = "quantile",
+              palette = "Blues")
+aged_equal = tm_shape(mpsz_pop2020) +
+  tm_polygons("AGED",
+              style = "equal",
+              palette = "Blues")+
+  tm_layout(legend.height = 0.45,
+            legend.width = 5.0,
+            legend.position = c("right", "bottom"),
+            frame = FALSE)
+tmap_arrange(aged_quantile,aged_equal,asp = 1, ncol = 2)
+```
+```{r}
+ggplot(data = mpsz_pop2020,
+       aes(x = "", y = AGED))+
+  geom_boxplot()
+```
+```{r}
+mpszpop2020a = mpsz_pop2020 %>% 
+  drop_na()
+```
+```{r}
+percent_bin <- c(0,.01,.1,.5,.9,.99,1)
+var = mpszpop2020a["DEPENDENCY"] %>%
+  st_set_geometry(NULL)
+```
+```{r}
+get.var = function(vname, df) {
+  v = df[vname] %>% 
+    st_set_geometry(NULL)
+  v = unname(v[,1])
+  return(v)
+}
+```
+```{r}
+var = get.var("DEPENDENCY",mpszpop2020a)
+bperc = quantile(var,percent_bin)
+tm_shape(mpsz_pop2020)+
+  tm_polygons()+
+tm_shape(mpszpop2020a)+
+  tm_fill("DEPENDENCY",
+          title = "DEPENDENCY",
+          breaks = bperc,
+          palette = "Blues",
+          labels = c("<1%", "1% - 10%", "10% - 50%","50% - 90%", "90% - 99%", ">99%")) +
+  tm_borders()+
+  tm_layout(title = "Percentile Map",
+            title.position = c("right", "bottom"))
+
+```
+```{r}
+percentmap = function(vnam, df, legtitle = NA, mtitle = "Percentile Map") {
+  percent_bin <- c(0,.01,.1,.5,.9,.99,1)
+  var = get.var(vnam,df)
+bperc = quantile(var,percent_bin)
+tm_shape(mpsz_pop2020)+
+  tm_polygons()+
+tm_shape(df)+
+  tm_fill(vnam,
+          title = legtitle,
+          breaks = bperc,
+          palette = "Blues",
+          labels = c("<1%", "1% - 10%", "10% - 50%","50% - 90%", "90% - 99%", ">99%")) +
+  tm_borders()+
+  tm_layout(title = mtitle, title.position = c("right", "bottom"))
+}
+```
+
+```{r}
+youngmap = percentmap("YOUNG", mpszpop2020a)
+agedmap = percentmap("AGED", mpszpop2020a)
+```
+
+```{r}
+tmap_arrange(youngmap,agedmap,asp = 1, ncol = 2)
+```
+```{r}
+boxbreaks = function(v, multiplier = 1.5) {
+  qv = unname(quantile(v))
+  iqr = qv[4] - qv[2]
+  upperfence = qv[4] + multiplier * iqr
+  lowerfence = qv[2] - multiplier * iqr
+  bb = vector(mode = "numeric", length = 7)
+  if (lowerfence <qv[1]){
+    bb[1] = lowerfence
+    bb[2] = floor(qv[1])
+  } else {
+    bb[2] = lowerfence
+    bb[1] = qv[1]
+  }
+  if (upperfence > qv[5]){
+    bb[7] = upperfence
+    bb[6] = ceiling(qv[5])
+  } else {
+    bb[7] = qv[5]
+    bb[6] = upperfence
+  }
+  bb[3:5] = qv[2:4]
+  return(bb)
+}
+```
+```{r}
+mpszpop2020a = mpsz_pop2020 %>% 
+  filter(AGED >=0)
+var = get.var("AGED",mpszpop2020a)
+quantile(var)
+boxbreaks(var)
+```
+```{r}
+boxmap <- function(vnam, df, legtitle= NA, mtitle = "Box Map", multiplier = 1.5) {
+  var <- get.var(vnam, df)
+  bb = boxbreaks(var)
+  tm_shape(mpsz_pop2020)+
+    tm_polygons()+
+  tm_shape(df) +
+    tm_fill(vnam,
+            title = legtitle,
+            breaks = bb,
+            palette = "Blues",
+            labels =  c("lower outlier",
+                        "< 25%",
+                        "25% - 50%",
+                        "50% - 75%",
+                        "> 75%",
+                        "upper outlier")) +
+  tm_borders()+
+  tm_layout(title = mtitle,
+            title.position = c("right","bottom"))
+}
+```
+```{r}
+boxmap("ECONOMY ACTIVE",mpszpop2020a)
+```
+```{r}
+mpszpop2020a <- mpsz_pop2020 %>% 
+  mutate(`AGED%` = (`AGED`/`TOTAL`)*100) %>% 
+  filter(`AGED%` >=0)
+```
+```{r}
+var = get.var("AGED", mpszpop2020a)
+boxbreaks(var)
+boxmap("AGED",mpszpop2020a)
+```
+```{r}
+var = get.var("AGED%", mpszpop2020a)
+boxbreaks(var)
+boxmap("AGED%",mpszpop2020a)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
