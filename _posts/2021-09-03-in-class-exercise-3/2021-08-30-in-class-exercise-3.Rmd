@@ -245,16 +245,3 @@ boxbreaks(var)
 boxmap("AGED%",mpszpop2020a)
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
