@@ -1,0 +1,47 @@
+---
+title: "Hands-On_Exercise2"
+description: |
+  A short description of the post.
+author:
+  - name: Toh Jun Long
+    url: https://linkedin.com/in/tohjunlong
+date: 09-05-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+packages = c('sf', 'tidyverse')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+```{r}
+mpsz = st_read(dsn = "../../Hands-on_Ex02/data/geospatial", 
+                  layer = "MP14_SUBZONE_WEB_PL")
+```
+```{r}
+cyclingpath = st_read(dsn = "../../Hands-on_Ex02/data/geospatial", 
+                         layer = "CyclingPath")
+```
+```{r}
+preschool = st_read("../../Hands-on_Ex02/data/geospatial/pre-schools-location-kml.kml")
+```
+
+```{r}
+st_geometry(mpsz)
+
+```
+
+
+
