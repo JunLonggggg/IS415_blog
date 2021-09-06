@@ -38,7 +38,7 @@ knitr::opts_chunk$set(echo = FALSE)
 
 - tidyverse for non-spatial data
 
-```{r}
+```{r echo = TRUE}
 packages = c("maptools","sf","raster","spatstat","tmap","tidyverse")
  for (p in packages){
     if(!require(p, character.only = T)){
@@ -47,7 +47,7 @@ packages = c("maptools","sf","raster","spatstat","tmap","tidyverse")
   library(p,character.only = T)
 }
 ```
-```{r}
+```{r echo = TRUE}
 sg_sf = st_read(dsn = "data/shapefile",
                 layer = "CostalOutline")
 mpsz_sf = st_read(dsn = "data/shapefile",
@@ -61,14 +61,14 @@ Childcare layer is just attribute table, aspatial data, no geometric data. Likew
 We need to check the data even if the dataset come from the same agency, structure of a dataset may vary.
 
 
-```{r}
+```{r echo = TRUE}
 childcare = read_rds("data/rds/childcare.rds")
 chas = read_rds("data/rds/CHAS.rds")
 ```
 
 ### Converting from aspatial to geospatial
 
-```{r}
+```{r echo = TRUE}
 chas_sf = st_as_sf(chas, coords = c("X_COORDINATE","Y_COORDINATE"),
                    crs = 3414)
 ```
@@ -83,7 +83,7 @@ thus the API is introduced for a better structured geospatial data format
 
 As a data analyst, we should choose the data that can benefit us the most when performing analysis
 
-```{r}
+```{r echo = TRUE}
 childcare$Lat = as.numeric(childcare$Lat)
 childcare$Lng = as.numeric(childcare$Lng)
 childcare_sf = st_as_sf(childcare, 
@@ -95,7 +95,7 @@ childcare_sf = st_as_sf(childcare,
 
 ### converting from sf format to Spatial* classes format
 
-```{r}
+```{r echo = TRUE}
 childcare = as_Spatial(childcare_sf)
 chas = as_Spatial(chas_sf)
 mpsz = as_Spatial(mpsz_sf)
@@ -106,7 +106,7 @@ sg = as_Spatial(sg_sf)
 
 SP layer do not have attribute/associate table
 
-```{r}
+```{r echo = TRUE}
 childcare_sp = as(childcare, "SpatialPoints")
 chas_sp = as(chas, "SpatialPoints")
 sg_sp = as(sg, "SpatialPolygons")
@@ -125,7 +125,7 @@ chas_ppp = as(chas_sp,"ppp")
 
 Keep interactive maps below 10 maps, we need to be aware of the limits web servers have
 
-```{r}
+```{r echo = TRUE}
 tmap_mode("view")
 tm_shape(childcare_sf)+
   tm_dots(alpha = 0.4,
@@ -136,7 +136,10 @@ tm_shape(chas_sf) +
           col = "red",
           size = 0.05)
 ```
-```{r}
+
+converting tmap_mode back to plot
+
+```{r echo = TRUE}
 tmap_mode("plot")
 ```
 
