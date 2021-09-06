@@ -1,0 +1,68 @@
+---
+title: "Take Home Exercise 1"
+description: |
+  A short description of the post.
+author:
+  - name: Toh Jun Long
+    url: https://linkedin.com/in/tohjunlong
+date: 09-06-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+Installing the necessary packages if not installed:
+maptools, sf, raster, spatstat and tmap.
+
+```{r}
+packages = c('maptools', 'sf', 'raster','spatstat', 'tmap')
+for(p in packages){
+  if(!require(p,character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+Reading the datas
+
+```{r}
+jakarta = st_read(dsn = "../../Take Home exercise 1/Data/Geospatial",
+                  layer = "BATAS_DESA_DESEMBER_2019_DUKCAPIL_DKI_JAKARTA")
+```
+```{r}
+st_crs(jakarta)
+```
+
+Setting the projection to EPSG:23845
+
+```{r}
+jakarta_sf23845 = st_set_crs(jakarta, 23845)
+```
+
+```{r}
+st_crs(jakarta_sf23845)
+```
+
+
+```{r}
+st_geometry(jakarta_sf23845)
+```
+
+```{r}
+tm_shape(jakarta_sf23845)+
+  tm_polygons()
+```
+
+
+
+
+
+
+
+
