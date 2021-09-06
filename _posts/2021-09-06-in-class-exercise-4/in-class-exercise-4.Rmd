@@ -123,6 +123,22 @@ childcare_ppp = as(childcare_sp,"ppp")
 chas_ppp = as(chas_sp,"ppp")
 ```
 
+Keep interactive maps below 10 maps, we need to be aware of the limits web servers have
+
+```{r}
+tmap_mode("view")
+tm_shape(childcare_sf)+
+  tm_dots(alpha = 0.4,
+          col = "blue",
+          size = 0.05) + 
+tm_shape(chas_sf) + 
+  tm_dots(alpha = 0.4,
+          col = "red",
+          size = 0.05)
+```
+```{r}
+tmap_mode("plot")
+```
 
 
 
