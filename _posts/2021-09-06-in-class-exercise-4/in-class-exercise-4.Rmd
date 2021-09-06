@@ -16,8 +16,115 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-Distill is a publication format for scientific and technical writing, native to the web.
+```{r}
+#one_map_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjc5NDgsInVzZXJfaWQiOjc5NDgsImVtYWlsIjoianVubG9uZy50b2guMjAxOUBzbXUuZWR1LnNnIiwiZm9yZXZlciI6ZmFsc2UsImlzcyI6Imh0dHA6XC9cL29tMi5kZmUub25lbWFwLnNnXC9hcGlcL3YyXC91c2VyXC9zZXNzaW9uIiwiaWF0IjoxNjMwODk1MDI4LCJleHAiOjE2MzEzMjcwMjgsIm5iZiI6MTYzMDg5NTAyOCwianRpIjoiYjMxNTZlNTY0N2M3YmY1ZWJkMDRiOGI5NjI2OTZjYjEifQ.CMI7LCGCaFrLzkd6KA3Ri5KlCFpwuuahpE-B6-DrVW8"
+```
 
-Learn more about using Distill at <https://rstudio.github.io/distill>.
+```{r}
+#get_theme(one_map_token,"")
+```
+
+- sf is mainly used for importing geospatial data
+
+- spatstat is used to perform spatial point patern analysis, might be a little outdated
+
+- maptools is used for map data conversion
+
+- ppp is the format supported by spatstat, hence we need maptools to convert spatial data from one type to ppp format
+
+- raster is used for handling raster-based geospatial data
+
+- tmap for mapping
+
+- tidyverse for non-spatial data
+
+```{r}
+packages = c("maptools","sf","raster","spatstat","tmap","tidyverse")
+ for (p in packages){
+    if(!require(p, character.only = T)){
+      install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+```{r}
+sg_sf = st_read(dsn = "data/shapefile",
+                layer = "CostalOutline")
+mpsz_sf = st_read(dsn = "data/shapefile",
+                layer ="MP14_SUBZONE_WEB_PL")
+```
+
+This is a new read format,using rds file as input file type. 
+
+Childcare layer is just attribute table, aspatial data, no geometric data. Likewise for chas data.
+
+We need to check the data even if the dataset come from the same agency, structure of a dataset may vary.
+
+
+```{r}
+childcare = read_rds("data/rds/childcare.rds")
+chas = read_rds("data/rds/CHAS.rds")
+```
+
+### Converting from aspatial to geospatial
+
+```{r}
+chas_sf = st_as_sf(chas, coords = c("X_COORDINATE","Y_COORDINATE"),
+                   crs = 3414)
+```
+
+4326 is the EPSG for WGS84, so we need to set it first then convert the coordinate system.
+
+SVY21 is in metres while WGS84 is in degrees
+
+data scientist at data.gov usually handle geospatial data using kml or geojson file type
+
+thus the API is introduced for a better structured geospatial data format
+
+As a data analyst, we should choose the data that can benefit us the most when performing analysis
+
+```{r}
+childcare$Lat = as.numeric(childcare$Lat)
+childcare$Lng = as.numeric(childcare$Lng)
+childcare_sf = st_as_sf(childcare, 
+                        coords = c("Lng",
+                                   "Lat"),
+                        crs = 4326) %>% 
+  st_transform(crs = 3414)
+```
+
+### converting from sf format to Spatial* classes format
+
+```{r}
+childcare = as_Spatial(childcare_sf)
+chas = as_Spatial(chas_sf)
+mpsz = as_Spatial(mpsz_sf)
+sg = as_Spatial(sg_sf)
+```
+
+### converting from Spatial* classes to sp format
+
+SP layer do not have attribute/associate table
+
+```{r}
+childcare_sp = as(childcare, "SpatialPoints")
+chas_sp = as(chas, "SpatialPoints")
+sg_sp = as(sg, "SpatialPolygons")
+```
+
+### converting from sp to spatstat ppp format
+
+Provides owin, the window study area, would be rectangle based on the xlim and ylim of the data
+
+once converted, projection would be lost, when converting back to raster layer, we need to add in the projection
+
+```{r echo = TRUE}
+childcare_ppp = as(childcare_sp,"ppp")
+chas_ppp = as(chas_sp,"ppp")
+```
+
+
+
+
 
 
