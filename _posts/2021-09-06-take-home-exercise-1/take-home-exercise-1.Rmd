@@ -16,11 +16,31 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-Installing the necessary packages if not installed:
-maptools, sf, raster, spatstat and tmap.
+1. Introduction
+
+Since late December 2019, an outbreak of a novel coronavirus disease (COVID-19; previously known as 2019-nCoV) was reported in Wuhan, China, which had subsequently affected 210 countries worldwide. In general, COVID-19 is an acute resolved disease but it can also be deadly, with a 2% case fatality rate.
+
+The COVID-19 pandemic in Indonesia is part of the ongoing worldwide pandemic of coronavirus disease 2019 (COVID-19) caused by severe acute respiratory syndrome coronavirus 2 (SARS-CoV-2). The virus was confirmed to have reached Indonesia on March 2, 2020. It started with two cases in March. As of July 31 2021, there had been 3,409,658 cumulative confirmed cases of COVID-19 in Indonesia and 94,119 reported cumulative deaths. All cases were spread in 34 provinces in Indonesia. Among all the provinces, DKI Jakarta (Indonesian: Daerah Khusus Ibukota Jakarta and in English: Special Capital Region of Jakarta) contributed close to 24% of the cumulative confirmed cases.
+
+Despite its compactness, the cumulative confirmed cases were not evenly distributed within DKI Jakarta as Figure below reveals at the district and sub-district levels. The question was where were the sub-districts with relatively higher number of confirmed cases and how they changed over time.
+
+Goals:
+- Identify the sub-districts with higher number of confirmed cases than average
+- Visualize the change in COVID-19 infection from March 2020 to August 2021
+
+2. Data
 
 ```{r}
-packages = c('maptools', 'sf', 'raster','spatstat', 'tmap')
+# add table with headers <Data, Format, Description, Source>
+```
+
+
+3. Installing and loading the necessary packages if not installed
+
+Packages used: maptools, sf, raster, spatstat and tmap, tidyverse, readxl
+
+```{r echo=TRUE, message=FALSE}
+packages = c('maptools', 'sf', 'raster','spatstat', 'tmap','tidyverse','readxl','xlsx')
 for(p in packages){
   if(!require(p,character.only = T)){
     install.packages(p)
@@ -29,23 +49,26 @@ for(p in packages){
 }
 ```
 
+4. Importing the data
+
 Reading the datas
 
-```{r}
-jakarta = st_read(dsn = "../../Take Home exercise 1/Data/Geospatial",
+```{r echo=TRUE}
+jakarta = st_read(dsn = "data/Geospatial",
                   layer = "BATAS_DESA_DESEMBER_2019_DUKCAPIL_DKI_JAKARTA")
 ```
-```{r}
+
+Check crs
+
+```{r echo=TRUE}
 st_crs(jakarta)
 ```
 
+
 Setting the projection to EPSG:23845
 
-```{r}
-jakarta_sf23845 = st_set_crs(jakarta, 23845)
-```
-
-```{r}
+```{r echo=TRUE}
+jakarta_sf23845 = st_transform(jakarta, 23845)
 st_crs(jakarta_sf23845)
 ```
 
@@ -54,14 +77,253 @@ st_crs(jakarta_sf23845)
 st_geometry(jakarta_sf23845)
 ```
 
+Peeking at the dataframe
+
+```{r echo=TRUE}
+glimpse(jakarta_sf23845)
+```
+
+
+Finding the common values of outer islands. By clicking at a few of the outer islands, we can see that one common data value is "KEPULAUAN SERIBU" under "KAB_KOTA"(City District) attribute.
+
 ```{r}
+tmap_mode("view")
 tm_shape(jakarta_sf23845)+
   tm_polygons()
+```
+
+```{r}
+tm_shape(jakarta_sf23845)+
+  tm_polygons() +
+tm_shape(jakarta_sf23845) +
+  tm_fill("KAB_KOTA",
+          palette = "RdYlBu")+
+  tm_borders()
+```
+```{r}
+tmap_mode("plot")
+```
+
+```{r}
+sum(is.na(jakarta_sf23845$KAB_KOTA))
+```
+Using the colSums to check the number of missing values in each attribute. From this we can see that there are at most 2 unique missing value. We need to check if we can remove the 2 value or we should keep it.
+
+```{r echo = TRUE}
+colSums(is.na(jakarta_sf23845))
+```
+
+Using rowSums and extracting any rows with missing value, we can see that it is truly 2 unique row that contains missing values in some of the columns, however, the data can still be kept within the dataframe as it provides geospatial properties that is part of a full constructed map.
+
+```{r}
+jakarta_sf23845[rowSums(is.na(jakarta_sf23845)) >0,]
+```
+
+
+```{r}
+jakarta_sf23845[is.na(jakarta_sf23845)] = "Missing"
+```
+
+```{r}
+jakarta_sf23845_cleaned = jakarta_sf23845[jakarta_sf23845$KAB_KOTA != "KEPULAUAN SERIBU",]
+```
+
+
+
+```{r}
+length(which(st_is_valid(jakarta_sf23845_cleaned) == FALSE))
+```
+
+```{r}
+tmap_mode("view")
+tm_shape(jakarta_sf23845_cleaned)+
+  tm_polygons()
+```
+
+```{r}
+tmap_mode("plot")
+```
+
+Retrieving first 9 columns of the data frame to be the cleaned data frame
+
+```{r}
+jakarta_sf23845_cleaned = jakarta_sf23845_cleaned[,c(1:9)]
+head(jakarta_sf23845_cleaned,5)
+```
+
+Importing Aspatial data (Daily COVID 19 DKI Jakarta)
+
+```{r}
+jakarta_covid = read_excel("data/Aspatial/Daily COVID 19 DKI Jakarta.xlsx") 
+jakarta_covid = jakarta_covid[-1,]
+list(jakarta_covid)
+```
+
+Geospatial Data Integration:
+
+```{r}
+init_month = function(df, month){
+  result = df[df$Month_year == month,]
+  return(result)
+}
+```
+
+```{r}
+join_funct = function(aspatial_df){
+  result = left_join(jakarta_sf23845_cleaned,aspatial_df,by = c("DESA_KELUR" = "nama_kelurahan")) %>% 
+    mutate(`cumulative confirmed cases rate` = (`POSITIF`/`JUMLAH_PEN`)) %>% 
+    mutate(`cumulative confirmed death rate` = (`Meninggal`/`JUMLAH_PEN`))
+  return(result)
+}
+```
+
+```{r}
+mar_20_covid = join_funct(init_month(jakarta_covid,"Mar-20"))
+apr_20_covid = join_funct(init_month(jakarta_covid,"Apr-20"))
+may_20_covid = join_funct(init_month(jakarta_covid,"May-20"))
+jun_20_covid = join_funct(init_month(jakarta_covid,"Jun-20"))
+jul_20_covid = join_funct(init_month(jakarta_covid,"Jul-20"))
+aug_20_covid = join_funct(init_month(jakarta_covid,"Aug-20"))
+sep_20_covid = join_funct(init_month(jakarta_covid,"Sep-20"))
+oct_20_covid = join_funct(init_month(jakarta_covid,"Oct-20"))
+nov_20_covid = join_funct(init_month(jakarta_covid,"Nov-20"))
+dec_20_covid = join_funct(init_month(jakarta_covid,"Dec-20"))
+jan_21_covid = join_funct(init_month(jakarta_covid,"Jan-21"))
+feb_21_covid = join_funct(init_month(jakarta_covid,"Feb-21"))
+mar_21_covid = join_funct(init_month(jakarta_covid,"Mar-21"))
+apr_21_covid = join_funct(init_month(jakarta_covid,"Apr-21"))
+may_21_covid = join_funct(init_month(jakarta_covid,"May-21"))
+jun_21_covid = join_funct(init_month(jakarta_covid,"Jun-21"))
+jul_21_covid = join_funct(init_month(jakarta_covid,"Jul-21"))
+aug_21_covid = join_funct(init_month(jakarta_covid,"Aug-21"))
+```
+
+6. Maps
+
+6.1 Thematic Mapping
+
+6.1.1 At a glance:
+
+Distribution of COVID-19 cumulative positive and death cases up till 31 December 2020
+
+```{r}
+tm_shape(jakarta_sf23845_cleaned)+
+  tm_polygons()+
+tm_shape(dec_20_covid) +
+  tm_fill(c("POSITIF","Meninggal"),
+          style = "jenks",
+          palette = "Blues")+
+  tm_layout(legend.position = c("right","bottom"))+
+  tm_borders()
+```
+
+Distribution of COVID-19 cumulative positive and death cases up till 31 August 2021
+
+```{r}
+tm_shape(jakarta_sf23845_cleaned)+
+  tm_polygons()+
+tm_shape(aug_21_covid) +
+  tm_fill(c("POSITIF","Meninggal"),
+          style = "jenks",
+          palette = "Blues")+
+  tm_layout(legend.position = c("right","bottom"))+
+  tm_borders()
+```
+
+
+Function for creating standard box map with Quanitle distribution
+
+
+```{r}
+map1 = function(df, vname, legtitle = NA,mtitle = NA){
+  tm_shape(df) +
+    tm_fill(vname,
+            style = "quantile",
+            palette = "Blues",
+            title = legtitle
+            )+
+    tm_layout(main.title = mtitle,
+              main.title.position = "center",
+              main.title.size = 0.8,
+              legend.outside = TRUE,
+              legend.position = c("right","bottom"),
+              frame = TRUE
+              )+
+    tm_borders(alpha = 0.5)+
+    tm_scale_bar(width = 0.15) +
+    tm_grid(lwd = 0.1, alpha = 0.2) +
+    tm_credits("Source: Open Data Covid-19 Provinsi DKI Jakarta. from Riwayat File Covid-19 DKI Jakarta", 
+               position = c("left", "bottom"))
+}
+
 ```
 
 
 
 
+
+```{r}
+cumu_case_mar_20 = map1(mar_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","March 2020")
+cumu_case_apr_20 = map1(apr_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","April 2020")
+cumu_case_may_20 = map1(may_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","May 2020")
+cumu_case_jun_20 = map1(jun_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","June 2020")
+cumu_case_jul_20 = map1(jul_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","July 2020")
+cumu_case_aug_20 = map1(aug_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","August 2020")
+cumu_case_sep_20 = map1(sep_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","September 2020")
+cumu_case_oct_20 = map1(oct_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","October 2020")
+cumu_case_nov_20 = map1(nov_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","November 2020")
+cumu_case_dec_20 = map1(dec_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","December 2020")
+cumu_case_jan_21 = map1(jan_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","January 2020")
+cumu_case_feb_21 = map1(feb_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","February 2020")
+cumu_case_mar_21 = map1(mar_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","March 2020")
+cumu_case_apr_21 = map1(apr_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","April 2020")
+cumu_case_may_21 = map1(may_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","May 2020")
+cumu_case_jun_21 = map1(jun_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","June 2020")
+cumu_case_jul_21 = map1(jul_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","July 2020")
+cumu_case_aug_21 = map1(aug_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","August 2020")
+
+```
+
+```{r}
+tmap_arrange(cumu_case_mar_20,cumu_case_apr_20,cumu_case_may_20,cumu_case_jun_20,cumu_case_jul_20,cumu_case_aug_20,cumu_case_sep_20,cumu_case_oct_20,cumu_case_nov_20,cumu_case_dec_20, asp = 1, ncol = 4, nrow = 3)
+```
+
+```{r}
+tmap_arrange(cumu_case_jan_21,cumu_case_feb_21,cumu_case_mar_21,cumu_case_apr_21,cumu_case_may_21,cumu_case_jun_21,cumu_case_jul_21,cumu_case_aug_21, asp = 1, ncol = 4, nrow = 3)
+```
+
+
+
+
+```{r}
+cumu_death_mar_20 = map1(mar_20_covid,"cumulative confirmed death rate","Death Cases","March 2020")
+cumu_death_apr_20 = map1(apr_20_covid,"cumulative confirmed death rate","Death Cases","April 2020")
+cumu_death_may_20 = map1(may_20_covid,"cumulative confirmed death rate","Death Cases","May 2020")
+cumu_death_jun_20 = map1(jun_20_covid,"cumulative confirmed death rate","Death Cases","June 2020")
+cumu_death_jul_20 = map1(jul_20_covid,"cumulative confirmed death rate","Death Cases","July 2020")
+cumu_death_aug_20 = map1(aug_20_covid,"cumulative confirmed death rate","Death Cases","August 2020")
+cumu_death_sep_20 = map1(sep_20_covid,"cumulative confirmed death rate","Death Cases","September 2020")
+cumu_death_oct_20 = map1(oct_20_covid,"cumulative confirmed death rate","Death Cases","October 2020")
+cumu_death_nov_20 = map1(nov_20_covid,"cumulative confirmed death rate","Death Cases","November 2020")
+cumu_death_dec_20 = map1(dec_20_covid,"cumulative confirmed death rate","Death Cases","December 2020")
+cumu_death_jan_21 = map1(jan_21_covid,"cumulative confirmed death rate","Death Cases","January 2020")
+cumu_death_feb_21 = map1(feb_21_covid,"cumulative confirmed death rate","Death Cases","February 2020")
+cumu_death_mar_21 = map1(mar_21_covid,"cumulative confirmed death rate","Death Cases","March 2020")
+cumu_death_apr_21 = map1(apr_21_covid,"cumulative confirmed death rate","Death Cases","April 2020")
+cumu_death_may_21 = map1(may_21_covid,"cumulative confirmed death rate","Death Cases","May 2020")
+cumu_death_jun_21 = map1(jun_21_covid,"cumulative confirmed death rate","Death Cases","June 2020")
+cumu_death_jul_21 = map1(jul_21_covid,"cumulative confirmed death rate","Death Cases","July 2020")
+cumu_death_aug_21 = map1(aug_21_covid,"cumulative confirmed death rate","Death Cases","August 2020")
+```
+
+```{r}
+tmap_arrange(cumu_death_mar_20,cumu_death_apr_20,cumu_death_may_20,cumu_death_jun_20,cumu_death_jul_20,cumu_death_aug_20,cumu_death_sep_20,cumu_death_oct_20,cumu_death_nov_20,cumu_death_dec_20, asp = 1, ncol = 4,nrow = 3)
+```
+
+```{r}
+tmap_arrange(cumu_death_jan_21,cumu_death_feb_21,cumu_death_mar_21,cumu_death_apr_21,cumu_death_may_21,cumu_death_jun_21,cumu_death_jul_21,cumu_death_aug_21, asp = 1, ncol = 4,nrow = 2)
+
+```
 
 
 
