@@ -300,25 +300,25 @@ Using tmap_arrange to arrange the individual map to into a 4 (columns) by 3 (row
 Cumulative Confirmed Cases rate for each month from March 2020 to June 2020 (4 Months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_case_mar_20,cumu_case_apr_20,cumu_case_may_20,cumu_case_jun_20, asp = 1, ncol = 2)
+tmap_arrange(cumu_case_mar_20,cumu_case_apr_20,cumu_case_may_20,cumu_case_jun_20, asp = 1, ncol = 2, nrow = 2)
 ```
 
 Cumulative Confirmed Cases rate for each month from July 2020 to October 2020 (4 Months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_case_jul_20,cumu_case_aug_20,cumu_case_sep_20,cumu_case_oct_20, asp = 1, ncol = 2)
+tmap_arrange(cumu_case_jul_20,cumu_case_aug_20,cumu_case_sep_20,cumu_case_oct_20, asp = 1, ncol = 2, nrow = 2)
 ```
 
 Cumulative Confirmed Cases rate for each month from November 2020 to February 2021 (4 Months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_case_nov_20,cumu_case_dec_20,cumu_case_jan_21,cumu_case_feb_21, asp = 1, ncol = 2)
+tmap_arrange(cumu_case_nov_20,cumu_case_dec_20,cumu_case_jan_21,cumu_case_feb_21, asp = 1, ncol = 2, nrow = 2)
 ```
 
 Cumulative Confirmed Cases rate for each month from March 2021 to June 2021 (4 Months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_case_mar_21,cumu_case_apr_21,cumu_case_may_21,cumu_case_jun_21, asp = 1, ncol = 2)
+tmap_arrange(cumu_case_mar_21,cumu_case_apr_21,cumu_case_may_21,cumu_case_jun_21, asp = 1, ncol = 2, nrow = 2)
 ```
 
 Cumulative Confirmed Cases rate for each month from July 2021 to August 2021 (2 Months)
@@ -357,25 +357,25 @@ Using tmap_arrange to arrange the individual map to into a 4 (columns) by 3 (row
 Cumulative death rate for each month from March 2020 to June 2020 (4 months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_death_mar_20,cumu_death_apr_20,cumu_death_may_20,cumu_death_jun_20, asp = 1, ncol = 2)
+tmap_arrange(cumu_death_mar_20,cumu_death_apr_20,cumu_death_may_20,cumu_death_jun_20, asp = 1, ncol = 2, nrow = 2)
 ```
 
 Cumulative death rate for each month from July 2020 to October 2020 (4 months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_death_jul_20,cumu_death_aug_20,cumu_death_sep_20,cumu_death_oct_20, asp = 1, ncol = 2)
+tmap_arrange(cumu_death_jul_20,cumu_death_aug_20,cumu_death_sep_20,cumu_death_oct_20, asp = 1, ncol = 2, nrow = 2)
 ```
 
 Cumulative death rate for each month from November 2020 to February 2021 (4 months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_death_nov_20,cumu_death_dec_20,cumu_death_jan_21,cumu_death_feb_21, asp = 1, ncol = 2)
+tmap_arrange(cumu_death_nov_20,cumu_death_dec_20,cumu_death_jan_21,cumu_death_feb_21, asp = 1, ncol = 2, nrow = 2)
 ```
 
 Cumulative death rate for each month from March 2020 to June 2021 (4 months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_death_mar_21,cumu_death_apr_21,cumu_death_may_21,cumu_death_jun_21, asp = 1, ncol = 2)
+tmap_arrange(cumu_death_mar_21,cumu_death_apr_21,cumu_death_may_21,cumu_death_jun_21, asp = 1, ncol = 2, nrow = 2)
 ```
 
 Cumulative death rate for each month from July 2021 to August 2021 (2 months)
