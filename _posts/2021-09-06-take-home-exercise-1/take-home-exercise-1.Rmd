@@ -30,9 +30,13 @@ Goals:
 
 2. Data
 
-```{r}
-# add table with headers <Data, Format, Description, Source>
-```
+Data: 
+  1. Open Data Covid-19 Provinsi DKI Jakarta
+    - source: Riwayat File Covid-19 DKI Jakarta
+    - Format: xlsx
+  2. Shapefile (SHP) Batas Desa Provinsi DKI Jakarta
+    - source: PODES 2019
+    - Format: shp
 
 
 3. Installing and loading the necessary packages if not installed
@@ -40,7 +44,7 @@ Goals:
 Packages used: maptools, sf, raster, spatstat and tmap, tidyverse, readxl
 
 ```{r echo=TRUE, message=FALSE}
-packages = c('maptools', 'sf', 'raster','spatstat', 'tmap','tidyverse','readxl','xlsx')
+packages = c('maptools', 'sf', 'raster','spatstat', 'tmap','tidyverse','readxl')
 for(p in packages){
   if(!require(p,character.only = T)){
     install.packages(p)
@@ -138,15 +142,8 @@ length(which(st_is_valid(jakarta_sf23845_cleaned) == FALSE))
 Confirming that external islands are removed
 
 ```{r echo=TRUE, message=FALSE}
-tmap_mode("view")
 tm_shape(jakarta_sf23845_cleaned)+
   tm_polygons()
-```
-
-Setting tmap_mode back to plot.
-
-```{r echo=TRUE}
-tmap_mode("plot")
 ```
 
 Retrieving first 9 columns of the data frame to be the cleaned data frame
@@ -270,7 +267,7 @@ map1 = function(df, vname, legtitle = NA,mtitle = NA){
 
 Creating the individual cumulative confirmed cases maps for each month.
 
-```{r echo=TRUE, message=FALSE, warning = FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 cumu_case_mar_20 = map1(mar_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","March 2020")
 cumu_case_apr_20 = map1(apr_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","April 2020")
 cumu_case_may_20 = map1(may_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","May 2020")
