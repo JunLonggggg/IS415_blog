@@ -86,15 +86,10 @@ st_geometry(jakarta_sf23845)
 
 Finding the common values of outer islands. By clicking at a few of the outer islands, we can see that one common data value is "KEPULAUAN SERIBU" under "KAB_KOTA"(City District) attribute.
 
-```{r echo=TRUE}
-tmap_mode("view")
-tm_shape(jakarta_sf23845)+
-  tm_polygons()
-```
-
 We can add in colors to confirm that the outer islands have a common value for KAB_KOTA
 
 ```{r echo=TRUE}
+tmap_mode("view")
 tm_shape(jakarta_sf23845)+
   tm_polygons() +
 tm_shape(jakarta_sf23845) +
