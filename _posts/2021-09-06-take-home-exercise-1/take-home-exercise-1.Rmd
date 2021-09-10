@@ -221,9 +221,12 @@ tm_shape(dec_20_covid) +
   tm_fill(c("POSITIF","Meninggal"),
           style = "jenks",
           palette = "Blues")+
-  tm_layout(legend.position = c("right","bottom"))+
+  tm_layout(legend.outside = TRUE,
+            legend.position = c("right","bottom"))+
   tm_borders()
 ```
+
+From this we can see that some areas have both high postive cases and death rates for the daily data until 31 dec 2020.
 
 Distribution of COVID-19 cumulative positive and death cases up till 31 August 2021
 
@@ -234,9 +237,12 @@ tm_shape(aug_21_covid) +
   tm_fill(c("POSITIF","Meninggal"),
           style = "jenks",
           palette = "Blues")+
-  tm_layout(legend.position = c("right","bottom"))+
+  tm_layout(legend.outside = TRUE,
+            legend.position = c("right","bottom"))+
   tm_borders()
 ```
+
+From this we can see that similar to dec 2020, some areas have both high postive cases and death rates for the daily data until 31 Aug 2021, however, the number of cases also increased from max of 1360 to 6547.
 
 
 Function for creating standard map with Quanitle distribution
@@ -291,17 +297,37 @@ cumu_case_aug_21 = map1(aug_21_covid,"cumulative confirmed cases rate","Cumulati
 
 Using tmap_arrange to arrange the individual map to into a 4 (columns) by 3 (rows) layout.
 
-Cumulative Confirmed Cases rate for each month from March 2020 to December 2020
+Cumulative Confirmed Cases rate for each month from March 2020 to June 2020 (4 Months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_case_mar_20,cumu_case_apr_20,cumu_case_may_20,cumu_case_jun_20,cumu_case_jul_20,cumu_case_aug_20,cumu_case_sep_20,cumu_case_oct_20,cumu_case_nov_20,cumu_case_dec_20, asp = 1, ncol = 4, nrow = 3)
+tmap_arrange(cumu_case_mar_20,cumu_case_apr_20,cumu_case_may_20,cumu_case_jun_20, asp = 1, ncol = 2)
 ```
 
-Cumulative Confirmed Cases rate for each month from January 2021 to August 2020
+Cumulative Confirmed Cases rate for each month from July 2020 to October 2020 (4 Months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_case_jan_21,cumu_case_feb_21,cumu_case_mar_21,cumu_case_apr_21,cumu_case_may_21,cumu_case_jun_21,cumu_case_jul_21,cumu_case_aug_21, asp = 1, ncol = 4, nrow = 3)
+tmap_arrange(cumu_case_jul_20,cumu_case_aug_20,cumu_case_sep_20,cumu_case_oct_20, asp = 1, ncol = 2)
 ```
+
+Cumulative Confirmed Cases rate for each month from November 2020 to February 2021 (4 Months)
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
+tmap_arrange(cumu_case_nov_20,cumu_case_dec_20,cumu_case_jan_21,cumu_case_feb_21, asp = 1, ncol = 2)
+```
+
+Cumulative Confirmed Cases rate for each month from March 2021 to June 2021 (4 Months)
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
+tmap_arrange(cumu_case_mar_21,cumu_case_apr_21,cumu_case_may_21,cumu_case_jun_21, asp = 1, ncol = 2)
+```
+
+Cumulative Confirmed Cases rate for each month from July 2021 to August 2021 (2 Months)
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
+tmap_arrange(cumu_case_jul_21,cumu_case_aug_21, asp = 1, ncol = 2)
+```
+
+From the graphical visualization, we can see that the while the cumulative positive case rate increases to 0.394 confirmed case per population, the spread of the confirmed cases starts more severely in north Jakarta in March 2020, before moving towards south Jakarta by Aug 2021
 
 Creating the individual cumulative death cases maps for each month.
 
@@ -328,19 +354,37 @@ cumu_death_aug_21 = map1(aug_21_covid,"cumulative confirmed death rate","Death C
 
 Using tmap_arrange to arrange the individual map to into a 4 (columns) by 3 (rows) layout.
 
-Cumulative death rate for each month from March 2020 to December 2020
+Cumulative death rate for each month from March 2020 to June 2020 (4 months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_death_mar_20,cumu_death_apr_20,cumu_death_may_20,cumu_death_jun_20,cumu_death_jul_20,cumu_death_aug_20,cumu_death_sep_20,cumu_death_oct_20,cumu_death_nov_20,cumu_death_dec_20, asp = 1, ncol = 4,nrow = 3)
+tmap_arrange(cumu_death_mar_20,cumu_death_apr_20,cumu_death_may_20,cumu_death_jun_20, asp = 1, ncol = 2)
 ```
 
-Cumulative death rate for each month from January 2021 to August 2020
+Cumulative death rate for each month from July 2020 to October 2020 (4 months)
 
 ```{r echo=TRUE, message=FALSE, warning = FALSE}
-tmap_arrange(cumu_death_jan_21,cumu_death_feb_21,cumu_death_mar_21,cumu_death_apr_21,cumu_death_may_21,cumu_death_jun_21,cumu_death_jul_21,cumu_death_aug_21, asp = 1, ncol = 4,nrow = 2)
+tmap_arrange(cumu_death_jul_20,cumu_death_aug_20,cumu_death_sep_20,cumu_death_oct_20, asp = 1, ncol = 2)
+```
+
+Cumulative death rate for each month from November 2020 to February 2021 (4 months)
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
+tmap_arrange(cumu_death_nov_20,cumu_death_dec_20,cumu_death_jan_21,cumu_death_feb_21, asp = 1, ncol = 2)
+```
+
+Cumulative death rate for each month from March 2020 to June 2021 (4 months)
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
+tmap_arrange(cumu_death_mar_21,cumu_death_apr_21,cumu_death_may_21,cumu_death_jun_21, asp = 1, ncol = 2)
+```
+
+Cumulative death rate for each month from July 2021 to August 2021 (2 months)
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
+tmap_arrange(cumu_death_jul_21,cumu_death_aug_21, asp = 1, ncol = 2)
 
 ```
 
-
+From the graphical visualization, we can see that the while the cumulative death rate increases to 0.0042 death toll per population, most of the highest death rate occurs around the central of Jakarta.
 
 
