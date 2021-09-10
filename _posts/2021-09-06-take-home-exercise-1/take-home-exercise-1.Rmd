@@ -64,35 +64,33 @@ Check crs
 st_crs(jakarta)
 ```
 
+Upon Reading the CRS, we can see that the projected coordinate systrem is different from the designated system of Indoneisa, which is DGN95 / Indonesia TM-3 zone 54.1, EPSG: 23845.
 
-Setting the projection to EPSG:23845
+We then have to transform the projection to EPSG:23845.
 
 ```{r echo=TRUE}
 jakarta_sf23845 = st_transform(jakarta, 23845)
 st_crs(jakarta_sf23845)
 ```
 
-
-```{r}
-st_geometry(jakarta_sf23845)
-```
-
-Peeking at the dataframe
+The change has been completed. WE can use st_geometry to take a look at the sf attributes.
 
 ```{r echo=TRUE}
-glimpse(jakarta_sf23845)
+st_geometry(jakarta_sf23845)
 ```
 
 
 Finding the common values of outer islands. By clicking at a few of the outer islands, we can see that one common data value is "KEPULAUAN SERIBU" under "KAB_KOTA"(City District) attribute.
 
-```{r}
+```{r echo=TRUE}
 tmap_mode("view")
 tm_shape(jakarta_sf23845)+
   tm_polygons()
 ```
 
-```{r}
+We can add in colors to confirm that the outer islands have a common value for KAB_KOTA
+
+```{r echo=TRUE}
 tm_shape(jakarta_sf23845)+
   tm_polygons() +
 tm_shape(jakarta_sf23845) +
@@ -100,13 +98,13 @@ tm_shape(jakarta_sf23845) +
           palette = "RdYlBu")+
   tm_borders()
 ```
-```{r}
+
+setting tmap_mode back to plot
+
+```{r echo=TRUE}
 tmap_mode("plot")
 ```
 
-```{r}
-sum(is.na(jakarta_sf23845$KAB_KOTA))
-```
 Using the colSums to check the number of missing values in each attribute. From this we can see that there are at most 2 unique missing value. We need to check if we can remove the 2 value or we should keep it.
 
 ```{r echo = TRUE}
@@ -115,45 +113,52 @@ colSums(is.na(jakarta_sf23845))
 
 Using rowSums and extracting any rows with missing value, we can see that it is truly 2 unique row that contains missing values in some of the columns, however, the data can still be kept within the dataframe as it provides geospatial properties that is part of a full constructed map.
 
-```{r}
+```{r echo=TRUE}
 jakarta_sf23845[rowSums(is.na(jakarta_sf23845)) >0,]
 ```
 
+Instead of dropping the rows with missing values, we can fill in with a string "Missing" as a placeholder. This can only be done if the columns do not contain important information that is useful for further processing
 
-```{r}
+```{r echo=TRUE, message=FALSE}
 jakarta_sf23845[is.na(jakarta_sf23845)] = "Missing"
 ```
 
-```{r}
+Dropping the rows that has "KEPULAUAN SERIBU" in column, KAB_KOTA
+
+```{r echo=TRUE, message=FALSE}
 jakarta_sf23845_cleaned = jakarta_sf23845[jakarta_sf23845$KAB_KOTA != "KEPULAUAN SERIBU",]
 ```
 
+checking geometry validity
 
-
-```{r}
+```{r echo=TRUE}
 length(which(st_is_valid(jakarta_sf23845_cleaned) == FALSE))
 ```
 
-```{r}
+Confirming that external islands are removed
+
+```{r echo=TRUE, message=FALSE}
 tmap_mode("view")
 tm_shape(jakarta_sf23845_cleaned)+
   tm_polygons()
 ```
 
-```{r}
+Setting tmap_mode back to plot.
+
+```{r echo=TRUE}
 tmap_mode("plot")
 ```
 
 Retrieving first 9 columns of the data frame to be the cleaned data frame
 
-```{r}
+```{r echo=TRUE}
 jakarta_sf23845_cleaned = jakarta_sf23845_cleaned[,c(1:9)]
 head(jakarta_sf23845_cleaned,5)
 ```
 
 Importing Aspatial data (Daily COVID 19 DKI Jakarta)
 
-```{r}
+```{r echo=TRUE}
 jakarta_covid = read_excel("data/Aspatial/Daily COVID 19 DKI Jakarta.xlsx") 
 jakarta_covid = jakarta_covid[-1,]
 list(jakarta_covid)
@@ -161,14 +166,18 @@ list(jakarta_covid)
 
 Geospatial Data Integration:
 
-```{r}
+Creating a function to initialise month data frame.
+
+```{r echo=TRUE, message=FALSE}
 init_month = function(df, month){
   result = df[df$Month_year == month,]
   return(result)
 }
 ```
 
-```{r}
+Creating a function to perform left_join from aspatial dataframe to geospatial dataframe.
+
+```{r echo=TRUE, message=FALSE}
 join_funct = function(aspatial_df){
   result = left_join(jakarta_sf23845_cleaned,aspatial_df,by = c("DESA_KELUR" = "nama_kelurahan")) %>% 
     mutate(`cumulative confirmed cases rate` = (`POSITIF`/`JUMLAH_PEN`)) %>% 
@@ -177,7 +186,9 @@ join_funct = function(aspatial_df){
 }
 ```
 
-```{r}
+using both function to initialize and join to create covid-19 dataframe of each month
+
+```{r echo=TRUE, message=FALSE}
 mar_20_covid = join_funct(init_month(jakarta_covid,"Mar-20"))
 apr_20_covid = join_funct(init_month(jakarta_covid,"Apr-20"))
 may_20_covid = join_funct(init_month(jakarta_covid,"May-20"))
@@ -206,7 +217,7 @@ aug_21_covid = join_funct(init_month(jakarta_covid,"Aug-21"))
 
 Distribution of COVID-19 cumulative positive and death cases up till 31 December 2020
 
-```{r}
+```{r echo=TRUE, message=FALSE}
 tm_shape(jakarta_sf23845_cleaned)+
   tm_polygons()+
 tm_shape(dec_20_covid) +
@@ -219,7 +230,7 @@ tm_shape(dec_20_covid) +
 
 Distribution of COVID-19 cumulative positive and death cases up till 31 August 2021
 
-```{r}
+```{r echo=TRUE, message=FALSE}
 tm_shape(jakarta_sf23845_cleaned)+
   tm_polygons()+
 tm_shape(aug_21_covid) +
@@ -231,10 +242,9 @@ tm_shape(aug_21_covid) +
 ```
 
 
-Function for creating standard box map with Quanitle distribution
+Function for creating standard map with Quanitle distribution
 
-
-```{r}
+```{r echo=TRUE, message=FALSE}
 map1 = function(df, vname, legtitle = NA,mtitle = NA){
   tm_shape(df) +
     tm_fill(vname,
@@ -258,11 +268,9 @@ map1 = function(df, vname, legtitle = NA,mtitle = NA){
 
 ```
 
+Creating the individual cumulative confirmed cases maps for each month.
 
-
-
-
-```{r}
+```{r echo=TRUE, message=FALSE, warning = FALSE}
 cumu_case_mar_20 = map1(mar_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","March 2020")
 cumu_case_apr_20 = map1(apr_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","April 2020")
 cumu_case_may_20 = map1(may_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","May 2020")
@@ -273,29 +281,34 @@ cumu_case_sep_20 = map1(sep_20_covid,"cumulative confirmed cases rate","Cumulati
 cumu_case_oct_20 = map1(oct_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","October 2020")
 cumu_case_nov_20 = map1(nov_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","November 2020")
 cumu_case_dec_20 = map1(dec_20_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","December 2020")
-cumu_case_jan_21 = map1(jan_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","January 2020")
-cumu_case_feb_21 = map1(feb_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","February 2020")
-cumu_case_mar_21 = map1(mar_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","March 2020")
-cumu_case_apr_21 = map1(apr_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","April 2020")
-cumu_case_may_21 = map1(may_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","May 2020")
-cumu_case_jun_21 = map1(jun_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","June 2020")
-cumu_case_jul_21 = map1(jul_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","July 2020")
-cumu_case_aug_21 = map1(aug_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","August 2020")
+cumu_case_jan_21 = map1(jan_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","January 2021")
+cumu_case_feb_21 = map1(feb_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","February 2021")
+cumu_case_mar_21 = map1(mar_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","March 2021")
+cumu_case_apr_21 = map1(apr_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","April 2021")
+cumu_case_may_21 = map1(may_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","May 2021")
+cumu_case_jun_21 = map1(jun_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","June 2021")
+cumu_case_jul_21 = map1(jul_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","July 2021")
+cumu_case_aug_21 = map1(aug_21_covid,"cumulative confirmed cases rate","Cumulative Postive Cases","August 2021")
 
 ```
 
-```{r}
+Using tmap_arrange to arrange the individual map to into a 4 (columns) by 3 (rows) layout.
+
+Cumulative Confirmed Cases rate for each month from March 2020 to December 2020
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
 tmap_arrange(cumu_case_mar_20,cumu_case_apr_20,cumu_case_may_20,cumu_case_jun_20,cumu_case_jul_20,cumu_case_aug_20,cumu_case_sep_20,cumu_case_oct_20,cumu_case_nov_20,cumu_case_dec_20, asp = 1, ncol = 4, nrow = 3)
 ```
 
-```{r}
+Cumulative Confirmed Cases rate for each month from January 2021 to August 2020
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
 tmap_arrange(cumu_case_jan_21,cumu_case_feb_21,cumu_case_mar_21,cumu_case_apr_21,cumu_case_may_21,cumu_case_jun_21,cumu_case_jul_21,cumu_case_aug_21, asp = 1, ncol = 4, nrow = 3)
 ```
 
+Creating the individual cumulative death cases maps for each month.
 
-
-
-```{r}
+```{r echo=TRUE, message=FALSE, warning = FALSE}
 cumu_death_mar_20 = map1(mar_20_covid,"cumulative confirmed death rate","Death Cases","March 2020")
 cumu_death_apr_20 = map1(apr_20_covid,"cumulative confirmed death rate","Death Cases","April 2020")
 cumu_death_may_20 = map1(may_20_covid,"cumulative confirmed death rate","Death Cases","May 2020")
@@ -316,11 +329,17 @@ cumu_death_jul_21 = map1(jul_21_covid,"cumulative confirmed death rate","Death C
 cumu_death_aug_21 = map1(aug_21_covid,"cumulative confirmed death rate","Death Cases","August 2020")
 ```
 
-```{r}
+Using tmap_arrange to arrange the individual map to into a 4 (columns) by 3 (rows) layout.
+
+Cumulative death rate for each month from March 2020 to December 2020
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
 tmap_arrange(cumu_death_mar_20,cumu_death_apr_20,cumu_death_may_20,cumu_death_jun_20,cumu_death_jul_20,cumu_death_aug_20,cumu_death_sep_20,cumu_death_oct_20,cumu_death_nov_20,cumu_death_dec_20, asp = 1, ncol = 4,nrow = 3)
 ```
 
-```{r}
+Cumulative death rate for each month from January 2021 to August 2020
+
+```{r echo=TRUE, message=FALSE, warning = FALSE}
 tmap_arrange(cumu_death_jan_21,cumu_death_feb_21,cumu_death_mar_21,cumu_death_apr_21,cumu_death_may_21,cumu_death_jun_21,cumu_death_jul_21,cumu_death_aug_21, asp = 1, ncol = 4,nrow = 2)
 
 ```
