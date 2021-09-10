@@ -386,5 +386,3 @@ tmap_arrange(cumu_death_jul_21,cumu_death_aug_21, asp = 1, ncol = 2)
 ```
 
 From the graphical visualization, we can see that the while the cumulative death rate increases to 0.0042 death toll per population, most of the highest death rate occurs around the central of Jakarta.
-
-
