@@ -1,0 +1,194 @@
+---
+title: "in-class-exercise-5"
+description: |
+  A short description of the post.
+author:
+  - name: Toh Jun Long
+    url: https://linkedin.com/in/tohjunlong
+date: 09-13-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE, eval=TRUE, echo=TRUE, message=FALSE,error=FALSE, fig.retina=3}
+knitr::opts_chunk$set(echo = FALSE) # setting the global
+# setting the fig.retine to 3 would be around 120 dpi higher res, default is 1
+```
+
+Installing and Loading the R packages required:
+
++ maptools is used for creating spatial* objects
++ sf is for importing geospatial data
++ raster is for creating raster object
++ spatstat is for performing SPPA
++ tmap is for plotting thematic maps
++ tidyverse is for data handling
+
+```{r}
+packages = c("maptools","sf","raster","spatstat","tmap","tidyverse", "plotly","ggthemes")
+for(p in packages){
+  if(!require(p, character.only = T)){
+      install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+## importing the Geospatial data
+
+Importing shapefile using *st_read()* of **sf** package. The output object is in tibble sf object class.
+
+```{r}
+mpsz_sf = st_read(dsn = "data/shapefile",
+               layer = "MP14_SUBZONE_WEB_PL")
+```
+
+Projection is in SVY21
+
+## Importing aspatial data from rds folder
+
+*read_rds()* of **readr** package is used instead of *readRDS()* of base R is used. This is because output of *read_rds()* is in tibble object.
+
+```{r}
+chas = read_rds("data/rds/CHAS.rds")
+childcare = read_rds("data/rds/childcare.rds")
+```
+
+Note that there are some data issue on childcare and chas dataframe because `lat` and `lng` should be in numeric data type. The coordinate fields seems to be in decimal degress. Hence, WGS84 referencing system is assumed, we will need to convert the reference system to EPSG3414.
+
+## Convert the aspatial data frame into sf objects
+
+```{r}
+chas_sf = st_as_sf(chas,
+                   coords = c("X_COORDINATE",
+                              "Y_COORDINATE"),
+                   crs = 3414)
+```
+
+Note: The *st_as_sf* is able to tolerate the coordinates with character data type
+
+```{r}
+childcare_sf = st_as_sf(childcare,
+                   coords = c("Lng",
+                              "Lat"),
+                   crs = 4326) %>% 
+  st_transform(crs = 3414)
+```
+
+## Plotting a general map for reviewing
+
+Some parameters used below:
++ alpha set to 0.4 to show the number of points in one geospatial location
++ col is to set the color of the dots
++ size is to set the size of the dots
+
+```{r}
+tmap_mode("view")
+tm_shape(childcare_sf)+
+  tm_dots(alpha = 0.4,
+          col = "blue",
+          size = 0.05) +
+  tm_shape(chas_sf) +
+  tm_dots(alpha = 0.4,
+          col = "red",
+          size = 0.05)
+```
+
+## Geospatial Data Wrangling
+
+### Converting from sf to Spatial* classes
+
+as_Spatial() of sf package.
+
+```{r}
+childcare = as_Spatial(childcare_sf)
+chas = as_Spatial(chas_sf)
+mpsz = as_Spatial(mpsz_sf)
+```
+
+The output is in a unique dataframe format, it has combination of list and table together
+
+The geometric property is placed under coords
+
+### Converting Spatial* data frame into Spatial* Objects
+
+as.SpatialPoint() of as.SpatialPolygon() of maptools package
+
+```{r}
+childcare_sp = as(childcare,"SpatialPoints")
+chas_sp = as(chas,"SpatialPoints")
+mpsz_sp = as(mpsz,"SpatialPolygons")
+```
+
+### Converting from Spatial* objects into ppp objects
+
+spatstat do not care about the geograhphical projection, this information will be dropped and loss, hence be careful how you treat the data.
+
+```{r}
+childcare_ppp = as(childcare_sp, "ppp")
+chas_ppp = as(chas_sp, "ppp")
+```
+
+### Removing duplicate points using jitter
+
+```{r}
+childcare_ppp_jit = rjitter(childcare_ppp,
+                            retry = TRUE,
+                            nsim = 1,
+                            drop = TRUE)
+any(duplicated(childcare_ppp_jit))
+```
+
+```{r}
+chas_ppp_jit = rjitter(chas_ppp,
+                            retry = TRUE,
+                            nsim = 1,
+                            drop = TRUE)
+any(duplicated(chas_ppp_jit))
+```
+
+tmap do not understand ppp format, hence we need to convert back to sf.
+
+alternative is using *plot()*
+
+### Extracting Punggol Planning Area
+
+
+```{r}
+pg = mpsz[mpsz@data$PLN_AREA_N == "PUNGGOL",]
+```
+
+### converting SpatialPolygonsDataFrame into SpatialPolygons object
+
+```{r}
+pg_sp = as(pg, "SpatialPolygons")
+```
+
+### Converting SpatialPolygons into owin object
+
+```{r}
+pg_owin = as(pg_sp, "owin")
+```
+
+### Extracting spatial points window owin
+
+```{r}
+childcare_pg = childcare_ppp_jit[pg_owin]
+chas_pg = chas_ppp_jit[pg_owin]
+```
+
+```{r}
+plot(childcare_pg)
+```
+
+## L-Funtion
+
+```{r}
+L_childcare = envelope(childcare_pg,
+                      Lest,
+                      nsim = 99,
+                      rank = 1,
+                      global = TRUE)
+```
