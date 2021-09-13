@@ -24,12 +24,29 @@ mpsz = st_read(dsn = "Hands-on_Ex03/data/geospatial",
                layer = "MP14_SUBZONE_WEB_PL")
 mpsz
 ```
+
+```{r}
+colSums(is.na(mpsz))
+```
+
 ```{r}
 popdata = read_csv("Hands-on_Ex03/data/aspatial/respopagesextod2011to2020.csv")
 popdata
 ```
 
 ```{r}
+popdatatest =  popdata %>% 
+  filter(Time == 2020) %>% 
+  group_by(PA,SZ,AG) %>% 
+  summarise(`POP` = sum(`Pop`)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = AG,
+              values_from = POP)
+```
+
+
+```{r}
+
 popdata2020 = popdata %>% 
   filter(Time == 2020) %>% 
   group_by(PA,SZ,AG) %>% 
