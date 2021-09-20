@@ -1,0 +1,21 @@
+---
+title: "Take Home Exercise 2"
+description: |
+  A short description of the post.
+author:
+  - name: Toh Jun Long
+    url: https://linkedin.com/in/tohjunlong
+date: 09-20-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r ssetup, include=FALSE, eval=TRUE, echo=TRUE, message=FALSE,error=FALSE, fig.retina=3}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+
+

@@ -36,18 +36,18 @@ for(p in packages){
 
 The following reads the Master Plan 2014 Subzone Boundary shp file
 ```{r}
-mpsz <- st_read(dsn = "/JunLonggggg/junlong-is415/Hands-on_Ex02/data/geospatial",
+mpsz <- st_read(dsn = "data/geospatial",
                 layer = "MP14_SUBZONE_WEB_PL")
 ```
 The following reads the Cycling path shape file
 ```{r}
-cyclingpath = st_read(dsn = "../../Hands-on_Ex02/data/geospatial",
+cyclingpath = st_read(dsn = "data/geospatial",
                       layer = "CyclingPath")
 cyclingpath
 ```
 The following reads the aspatial data pre schools location
 ```{r}
-preschool = st_read("../../Hands-on_Ex02/data/geospatial/pre-schools-location-kml.kml")
+preschool = st_read("data/geospatial/pre-schools-location-kml.kml")
 ```
 ```{r}
 st_geometry(mpsz)

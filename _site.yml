@@ -6,7 +6,9 @@ output_dir: "_site"
 navbar:
   right:
     - text: "In-class Exercise"
-      href: index.html
+      menu:
+        - text: "In-Class Exercise 2"
+          href: in-class-exercise-2.html
     - text: "Take-home Exercise"
       menu: 
         - text: "Take-home Exercise 1"

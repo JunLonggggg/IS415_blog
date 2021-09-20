@@ -16,9 +16,6 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r}
-#one_map_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjc5NDgsInVzZXJfaWQiOjc5NDgsImVtYWlsIjoianVubG9uZy50b2guMjAxOUBzbXUuZWR1LnNnIiwiZm9yZXZlciI6ZmFsc2UsImlzcyI6Imh0dHA6XC9cL29tMi5kZmUub25lbWFwLnNnXC9hcGlcL3YyXC91c2VyXC9zZXNzaW9uIiwiaWF0IjoxNjMwODk1MDI4LCJleHAiOjE2MzEzMjcwMjgsIm5iZiI6MTYzMDg5NTAyOCwianRpIjoiYjMxNTZlNTY0N2M3YmY1ZWJkMDRiOGI5NjI2OTZjYjEifQ.CMI7LCGCaFrLzkd6KA3Ri5KlCFpwuuahpE-B6-DrVW8"
-```
 
 ```{r}
 #get_theme(one_map_token,"")
