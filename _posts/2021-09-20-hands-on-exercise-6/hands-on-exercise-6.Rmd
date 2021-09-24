@@ -64,6 +64,16 @@ hunan$County[1]
 hunan$NAME_3[c(2,3,4,57,85)]
 ```
 
+the index in wm_q[[1]] is the data frame row index
+
+```{r}
+nb1 = wm_q[[1]]
+nb1 = hunan$GDPPC[nb1]
+nb1
+```
+
+
+
 ```{r}
 str(wm_q)
 ```
@@ -89,7 +99,7 @@ coords <- cbind(longitude, latitude)
 head(coords)
 ```
 
-```{r}
+```{r fig,width = 8, fig.height=8}
 plot(hunan$geometry, border="lightgrey")
 plot(wm_q, coords, pch = 19, cex = 0.6, add = TRUE, col= "red")
 ```
