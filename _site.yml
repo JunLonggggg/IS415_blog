@@ -9,10 +9,16 @@ navbar:
       menu:
         - text: "In-Class Exercise 2"
           href: posts/2021-08-23-in-class-exercise-2/index.html
+        - text: "In-Class Exercise 3"
+          href: posts/2021-09-03-in-class-exercise-3/index.html
+        - text: "In-Class Exercise 4"
+          href: posts/2021-09-06-in-class-exercise-4/index.html
+        - text: "In-Class Exercise 5"
+          href: posts/2021-09-13-in-class-exercise-5/index.html
     - text: "Take-home Exercise"
       menu: 
         - text: "Take-home Exercise 1"
-          href: 
+          href: posts/2021-09-06-take-home-exercise-1/index.html
         - text: "Take-home Exercise 2"
           href: 
         - text: "Take-home Exercise 3"
