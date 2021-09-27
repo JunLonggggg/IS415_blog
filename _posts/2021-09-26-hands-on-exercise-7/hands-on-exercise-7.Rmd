@@ -1,7 +1,7 @@
 ---
 title: "hands-on exercise 7"
 description: |
-  A short description of the post.
+  In this hands on exercise, we learn to use global statistics for spatial autocorrelation, such as Moran's I and Geary's C, going more in-depth using local Moran's I and local Geary's C. Lastly, the global Getis-Ord's G stats to illustrate correlation using nearest neighbor's distance.
 author:
   - name: Toh Jun Long
     url: https://linkedin.com/in/tohjunlong
@@ -73,19 +73,27 @@ tmap_arrange(basemap, gdppc, asp=1, ncol=2)
 Global Spatial Autocorrelation:
 
 
-step 1: constructing spatial weights of the study area.
+Constructing spatial weights of the study area.
 
 Spatial weights are used to define the neighbourhood relationships between geographical units in the study area.
 
 poly2nb() computes contiguity weight matrices.
 Using previous lesson's knowledge of the "queen" and "rook" to define neighbours. In this case, we identify neighbours using "queen".
 
+1. create neighbor list
+2. compute the contiguity
+
 ```{r}
 wm_q <- poly2nb(hunan, queen=TRUE)
 summary(wm_q)
 ```
 
-Row-standardised weights matrix:
+if you set the queen = True, it is actually not changed since the default adjacency configuration is in queens. Setting it to false will then set the adjacency config to "Rook" method.
+
+How to we want to do the weight matrix?
+Row standardization or binary.
+
+#### Row-standardised weights matrix:
 
 Goal is to assign weights to each neighboring polygon. Assigning equal weight of 1/(# of neighbours). 
 
@@ -102,13 +110,19 @@ zero.policy is used to allow non-neighbours. Good for when we are not sure if th
 
 ## Global Spatial Autocorrelation: Moran's I test
 
+we can set the alternative hypothesis using the parameter, alternative = "<string>".
+
+if we happen to be using ranked data (ordinal), we should change the "rank" parameter to True.
+
 ```{r}
 moran.test(hunan$GDPPC, listw=rswm_q, zero.policy = TRUE, na.action=na.omit)
 ```
 
-p-value is small, thus we can infer that this is statistically significant, reject null hypothesis. Z value is 0.301 (3 s.f.) which is positive, means that observations around the within the study area are likely to have small degree of similarity.
+p-value is small, thus we can infer that this is statistically significant, reject null hypothesis. Z value is 0.301 (3 s.f.) which is positive, means that observations around the within the study area are likely to have small degree of similarity. Signs of clustering.
 
 ### Monte Carlo's Moran's I
+
+The start seed is fixed such that the simulation generated is standardized.
 
 ```{r}
 set.seed(1234)
@@ -116,7 +130,7 @@ bperm= moran.mc(hunan$GDPPC, listw=rswm_q, nsim=999, zero.policy = TRUE, na.acti
 bperm
 ```
 
-Observations are likely to have small degree of similarity
+Observations are likely to have small degree of similarity and relatively weak.
 
 Visualizing Monte Carlo's Moran's I
 
@@ -131,6 +145,10 @@ var(bperm$res[1:999])
 ```{r}
 summary(bperm$res[1:999])
 ```
+
+bperm -> permutatiton, plot the residue of the permutation. Our aim is to confirm the central limit theorem: if we have large sample, the sample should resemble a normal distribution.
+
+At p-value of 0.01, it may not be a confident decision to reject the null hypothesis.  
 
 ```{r}
 hist(bperm$res, freq=TRUE, breaks=20, xlab="Simulated Moran's I")
@@ -169,12 +187,33 @@ var(bperm$res[1:999])
 summary(bperm$res[1:999])
 ```
 
-Spatial Correlation
+```{r}
+hist(bperm$res, freq=TRUE, breaks=20, xlab="Simulated Geary c")
+abline(v=1, col="red") 
+```
+
+### Spatial Correlation
+
+Correlogram of the different orders, from 1st order to 6th order.
+
+most important parameter is the order, the method and the style.
+
+I method if moran's I.
+
+This is not the normal plot from base graphic, this is specifically for correlogram.
 
 ```{r}
 MI_corr <- sp.correlogram(wm_q, hunan$GDPPC, order=6, method="I", style="B")
 plot(MI_corr)
 ```
+
+```{r}
+print(MI_corr)
+```
+
+lag 4 is not statistically significant, this is greater than any of the commonly used alpha value. the stars signifies that the lag 4 does not have enough statistical evidence to reject null hypothesis.
+
+after finding out that there are clustering, we need to find out where is the cluster, hence to use local tests.
 
 ```{r}
 GC_corr <- sp.correlogram(wm_q, hunan$GDPPC, order=6, method="C", style="W")
@@ -211,6 +250,8 @@ tm_shape(hunan.localMI) +
   tm_borders(alpha = 0.5)
 ```
 
+We can only see the postive correlation and signs of clustering from the plot above. We should look at the plot of p-value to have the confidence to conclude that there are signs of clustering
+
 mapping local Moran's I p-values
 
 ```{r}
@@ -222,7 +263,7 @@ tm_shape(hunan.localMI) +
   tm_borders(alpha = 0.5)
 ```
 
-Mapping both local Moran's I and p values
+Mapping both local Moran's I and p values to draw conclusion.
 
 ```{r}
 localMI.map <- tm_shape(hunan.localMI) +
@@ -241,8 +282,11 @@ pvalue.map <- tm_shape(hunan.localMI) +
 tmap_arrange(localMI.map, pvalue.map, asp=1, ncol=2)
 ```
 
+Decompose the relationship.
 
-Creating Local Indication of Spatial Assocation (LISA):
+
+
+### Creating Local Indication of Spatial Assocation (LISA):
 
 plotting Moran scatterplot
 
@@ -253,6 +297,8 @@ nci <- moran.plot(hunan$GDPPC, rswm_q,
                   ylab="Spatially Lag GDPPC 2012")
 
 ```
+
+Need to scale such that the autocorrelation around 0.
 
 ```{r}
 hunan$Z.GDPPC <- scale(hunan$GDPPC) %>% as.vector 
@@ -266,6 +312,10 @@ nci2 <- moran.plot(hunan$Z.GDPPC, rswm_q,
                    xlab="z-GDPPC 2012", 
                    ylab="Spatially Lag z-GDPPC 2012")
 ```
+we need to standardize such that z shows the target county, while w are surrounding counties.
+
+negative autocorrelation are likely outliers.
+
 
 Preparing LISA map classes:
 
@@ -298,6 +348,8 @@ quadrant[localMI[,5]>signif] <- 0
 ```
 
 Combined code chunk to identify, high-high, low-low, low-high, high-low and insignificant Moran
+
+Should revisit the code below.
 
 ```{r}
 quadrant <- vector(mode="numeric",length=nrow(localMI))
@@ -347,9 +399,19 @@ LISAmap <- tm_shape(hunan.localMI) +
 tmap_arrange(gdppc, LISAmap, asp=1, ncol=2)
 ```
 
-Hot Spot and Cold Spot Area analysis
+Looking at the original value, the county with "low-low" among the "high-high". there is improvement to check on why is the county classified wrongly.Have to change the above code more.
+
+### Hot Spot and Cold Spot Area analysis
+
+Only if there is no negative value. If there are negative value, then we cannpt use the Getis-Ord G stats.
+
+2 types:
++ fixed
++ adaptive
 
 Getis and Ord's G-stats
+
+Reduce computation time by breaking down to lat and long, also to avoid the centroid to be placed wrongly.
 
 ```{r}
 longitude <- map_dbl(hunan$geometry, ~st_centroid(.x)[[1]])
@@ -382,6 +444,8 @@ wm_d62
 wm62_lw <- nb2listw(wm_d62, style = 'B')
 summary(wm62_lw)
 ```
+
+Fix the number of nearest neighbor
 
 ```{r}
 knn <- knn2nb(knearneigh(coords, k=8))
@@ -421,6 +485,10 @@ Gimap <-tm_shape(hunan.gi) +
 tmap_arrange(gdppc, Gimap, asp=1, ncol=2)
 ```
 
+No outliers can be seen here, hot spots are where highly correlated. Likely because of factors such as travel corridor etc.
+
+#### Using adaptive distance
+
 ```{r}
 fips <- order(hunan$County)
 gi.adaptive <- localG(hunan$GDPPC, knn_lw)
@@ -441,4 +509,4 @@ Gimap <- tm_shape(hunan.gi) +
 tmap_arrange(gdppc, Gimap, asp=1, ncol=2)
 ```
 
-Thee are hot spots in areas where GDPPC are higher while on the other hand, cold spots are identified in areas where GDPPC are lower.
+The results are more homogenous. 
