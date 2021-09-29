@@ -12,10 +12,317 @@ output:
 ---
 
 
-```{r ssetup, include=FALSE, eval=TRUE, echo=TRUE, message=FALSE,error=FALSE, fig.retina=3}
+```{r setup, include=FALSE, eval=TRUE, echo=TRUE, message=FALSE,error=FALSE, fig.retina=3}
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
+1.0.0 Context and analysis goal(s):
 
+1.1.o Contexts
+Due to the ever-changing world, people all around the world are able to set up simple, small scale business operations within the comfort of our home. 
+Our analysis will focus on Airbnb, the leading short-term rentals. While it is not legal to make short-term rentals, enforcement of such legal policy would be rare.
+
+1.2.0 Analysis Goals:
+
++ Main goal: To determine if distribution of Airbnb listings are affected by factors such as as existing hotels, public transport options and other notable amenities
+
+1.2.1 Exploratory Spatial Data Analysis
+
++ Derive kernel density maps of Airbnb listings, hotel, MRT services and tourist attractions.
++ Display kernel density maps on openstreetmap of Singapore. Describe the spatial patterns derived from the kernel density maps.
+
+1.2.2 Second-Order Spatial Point Patterns Analysis (2nd order SPPA)
+
++ Formulate null and alternative hypothesis, select confidence level
++ perform tests using "2nd order SPPA" technique
++ Draw statistical conclusions
+
+
+2. Understanding the Dataset
+
+2.1  Airbnb listings
+
+Datas:
+  Aspatial
++ Airbnb listing at 30th June 2019: 30062019.csv
++ Airbnb listing at 29th June 2021: 29062021.csv
+
+Source: http://insideairbnb.com/get-the-data.html
+
+  Geospatial
++ Train Stations: MRTLRTStnPtt.shp
++ 
+
+
+
+3. Importing Required Packages
+
+```{r}
+packages = c("maptools","sf","raster","spatstat","tmap","tidyverse", "plotly","ggthemes","httr", 'sp', 'rgdal', 'spNetwork')
+for(p in packages){
+  if(!require(p, character.only = T)){
+      install.packages(p)
+  }
+  library(p,character.only = T)
+}
+```
+
+4. Importing datas
+
+API Call (if there's time):
+
+
+getting some interesting themes such as hsgb_safra, hawkercentre, healthier_hawker_centres, lta_cycling_paths, customs_tabacco_product, monuments, museum, hotels,skyrisegreenery, tourism, eating_establishments, exercisefacilities, moneychanger, supermarkets, historicsites
+
+```{r eval=FALSE}
+# token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjc5NDgsInVzZXJfaWQiOjc5NDgsImVtYWlsIjoianVubG9uZy50b2guMjAxOUBzbXUuZWR1LnNnIiwiZm9yZXZlciI6ZmFsc2UsImlzcyI6Imh0dHA6XC9cL29tMi5kZmUub25lbWFwLnNnXC9hcGlcL3YyXC91c2VyXC9zZXNzaW9uIiwiaWF0IjoxNjMyMDk4NDEyLCJleHAiOjE2MzI1MzA0MTIsIm5iZiI6MTYzMjA5ODQxMiwianRpIjoiODE4ZWVkNjU2ZjMxZmU0ZDUwMWQyODdkMmVhODM4ZDYifQ.HIPhTPDF95Z1_0ytLsJ-JSFBhgMF3n77YVu21Ht_dU8"
+# query = "hawkercentre"
+# my_url = paste0("https://developers.onemap.sg/privateapi/themesvc","retrieveTheme?queryName=",query, "&token=",token)
+# raw_result = httr::GET(my_url)
+```
+
+```{r}
+# content = httr::content(raw_result,as="text")
+```
+
+
+
+4.1 importing Geospatial data
+
+4.1.1. importing train station shp file
+
+```{r}
+train_station = st_read(dsn = "data/geospatial",
+                        layer = "MRTLRTStnPtt")
+```
+
+```{r}
+st_crs(train_station)
+```
+
+Reading in the Planning Subzone Geospatial data.
+
+```{r}
+mpsz = st_read(dsn = "data/geospatial",
+               layer = "MP14_SUBZONE_WEB_PL")
+```
+
+```{r}
+st_crs(mpsz)
+```
+
+Setting the projected coordinate system to Singapore's standard projection system of 3414.
+
+```{r}
+train_station_3414 = st_set_crs(train_station, 3414)
+mpsz_3414 = st_set_crs(mpsz, 3414)
+```
+
+```{r}
+st_crs(train_station_3414)
+```
+
+Doing a plot to show the spatial points signifying mrt stations in the subzones
+
+```{r}
+tm_shape(mpsz_3414) + 
+  tm_polygons() +
+tm_shape(train_station_3414)+
+  tm_dots(alpha = 0.5,
+          size = 0.125)
+```
+
+Reading in the Aspatial data.
+
+Airbnb Datas:
+
+```{r}
+airbnb_2021 = read_csv("data/aspatial/Airbnb_listing/29062021.csv")
+airbnb_2019 = read_csv("data/aspatial/Airbnb_listing/30062019.csv")
+```
+
+OneMap's Datas:
+
+Hotel:
+
+```{r}
+hotels = read_csv("data/aspatial/OneMap_Data/hotels.csv")
+```
+
+Tourism spots:
+
+```{r}
+tourism = read_csv("data/aspatial/OneMap_Data/tourism.csv")
+```
+
+Transforming latitude and longitude of each aspatial data to Singapore projection system
+
+```{r}
+airbnb_2019_sf = st_as_sf(airbnb_2019,
+                          coords = c("longitude","latitude"),
+                          crs = 4326) %>% 
+  st_transform(crs = 3414)
+airbnb_2021_sf = st_as_sf(airbnb_2021,
+                          coords = c("longitude","latitude"),
+                          crs = 4326) %>% 
+  st_transform(crs = 3414)
+hotels_sf = st_as_sf(hotels,
+                     coords = c("Lng","Lat"),
+                     crs = 4326) %>% 
+  st_transform(crs = 3414)
+tourism_sf = st_as_sf(tourism,
+                     coords = c("Lng","Lat"),
+                     crs = 4326) %>% 
+  st_transform(crs = 3414)
+```
+
+## Section A: Airbnb Distribution in 2019
+
+### Exploratory Spatial Data Analysis
+
+First let us plot the spatial points of each dataset onto the map (mpsz) to look at the spread of Airbnb Listings, Hotels, Tourism Spots and Mrt Stations
+
+```{r}
+airbnb_2019_map = tm_shape(mpsz_3414)+
+  tm_polygons() +
+  tm_shape(airbnb_2019_sf)+
+  tm_dots(alpha = 0.5,
+          size = 0.05,
+          col = "#CC0033")
+hotel_map = tm_shape(mpsz_3414)+
+  tm_polygons() +
+  tm_shape(hotels_sf)+
+  tm_dots(alpha = 0.5,
+          size = 0.05,
+          col = "#0066CC")
+tourism_map = tm_shape(mpsz_3414)+
+  tm_polygons() +
+  tm_shape(tourism_sf)+
+  tm_dots(alpha = 0.5,
+          size = 0.05,
+          col = "#FF6600")
+train_station_map = tm_shape(mpsz_3414) +
+tm_polygons() +
+tm_shape(train_station_3414)+
+tm_dots(alpha = 0.5,
+        size = 0.05,
+        col = "#00940c")
+tmap_arrange(airbnb_2019_map, hotel_map, tourism_map,train_station_map,ncol = 2, nrow = 2)
+```
+
+From the map, we can vaguely tell that there are higher concentation of airbnb listing along the southern central part of the island, where Sentosa and other recreational activities are commonly found in Singapore, as illustrated by the orange spatial points for "Tourism" and blue spatial points for "hotels".
+
+This is merely a visual gauge of the concentration, thus we should calculate the count and density of airbnb listings, hotels and tourisms spots in each planning area.
+
+Calculating and appending the counts and density.
+
+Airbnb listing 2019 counts and density:
+
+```{r}
+mpsz_3414$`listing count` = lengths(st_intersects(mpsz_3414, airbnb_2019_sf))
+```
+
+Here, we can calculate the density of the airbnb listings by taking the number of listing in a spatial polygon and divide it by the area (m^2) and scale the values up by 1,000,000 to convert m^2 to km^2, the resultant value would have been a decimal with value as small as 10^-9 otherwise.
+
+Getting the area value of each planning subzone
+
+```{r}
+mpsz_3414$Area = mpsz_3414 %>% 
+  st_area()
+summary(mpsz_3414$Area)
+```
+
+Calculating the density of listing in each area:
+
+```{r}
+mpsz_3414 = mpsz_3414 %>% 
+  mutate(`listing density` = `listing count` / (Area *1000000))
+```
+
+Next, we will be doing the same for Tourism, hotel and train station.
+
+First, the count of the abovementioned:
+
+```{r}
+mpsz_3414$`tourism count` = lengths(st_intersects(mpsz_3414, tourism_sf))
+mpsz_3414$`hotel count` = lengths(st_intersects(mpsz_3414, hotels_sf))
+mpsz_3414$`train station count` = lengths(st_intersects(mpsz_3414, train_station_3414))
+```
+
+Second, the density of the abovementioned:
+
+```{r}
+mpsz_3414 = mpsz_3414 %>% 
+  mutate(`tourism density` = `tourism count` / (Area *1000000)) %>% 
+  mutate(`hotel density` = `hotel count` / (Area *1000000)) %>% 
+  mutate(`train station density` = `train station count` / (Area *1000000))
+```
+
+Plotting the counts onto the planning subzone map to illustrate distribution:
+
+Airbnb Listing 2019, using quantile to highlight the concentration of high listing count on the map.
+
+```{r}
+tm_shape(mpsz_3414)+
+  tm_fill("listing count",
+          style = "quantile",
+          palette = "Blues",
+          title = "Listing Count")+
+  tm_layout(main.title = "Distribution of Listing Count by planning subzone",
+            main.title.position = "center",
+            main.title.size = 1.2,
+            legend.height = 0.45, 
+            legend.width = 0.35,
+            frame = TRUE) +
+  tm_borders(alpha = 0.5) +
+  tm_compass(type="8star", size = 2) +
+  tm_scale_bar() +
+  tm_grid(alpha =0.2) +
+  tm_credits("Source: Planning Sub-zone boundary from Urban Redevelopment Authorithy (URA)\n and Population data from Department of Statistics DOS", 
+             position = c("left", "bottom"))
+```
+
+```{r}
+ggplot(data = mpsz_3414,
+       aes(x = as.numeric(`listing count`)))+
+  geom_histogram(bins = 20,
+                 color = "black",
+                 fill = "light blue")+
+  labs(title = "Distribution of airbnb listing in Singapore",
+       subtitle = "The graph shows a very clear skewness of the distribution, such that many areas in Singapore have very few Airbnb listings",
+       x = "Airbnb Listing 2019 density (per km sq)",
+       y = "Frequency")
+```
+
+From the graph above, we can tell that the distribution of Airbnb Listing are very sparce in Singapore in the year 2019.
+
+
+```{r}
+ggplot(data = mpsz_3414,
+       aes(x = as.numeric(`tourism count`)))+
+  geom_histogram(bins = 20,
+                 color = "black",
+                 fill = "light blue")+
+  labs(title = "Distribution of tourism spots in Singapore",
+       subtitle = "The graph shows a very clear skewness of the distribution, such that many areas in Singapore have very few tourism spots.",
+       x = "Tourism density (per km sq)",
+       y = "Frequency")
+```
+
+```{r}
+ggplot(data = mpsz_3414,
+       aes(x = as.numeric(`hotel count`)))+
+  geom_histogram(bins = 20,
+                 color = "black",
+                 fill = "light blue")+
+  labs(title = "Distribution of hotel in Singapore",
+       subtitle = "The graph shows that the distribution of hotel are scattered in Singapore.",
+       x = "Hotel density (per km sq)",
+       y = "Frequency")
+```
+
+In general, the distribution of tourism spots, hotel and airbnb listins seems to indicate scattered distribution based on the graphs above. Perhaps there could be a underlying correlation between the listing and the other 2 factors?
+
+We should investigate that further.
 
 
