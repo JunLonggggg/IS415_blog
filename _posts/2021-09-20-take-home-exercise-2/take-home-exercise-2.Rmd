@@ -58,7 +58,7 @@ Source: http://insideairbnb.com/get-the-data.html
 3. Importing Required Packages
 
 ```{r}
-packages = c("maptools","sf","raster","spatstat","tmap","tidyverse", "plotly","ggthemes","httr", 'sp', 'rgdal', 'spNetwork')
+packages = c("maptools","sf","raster","spatstat","tmap","tidyverse", "plotly","ggthemes", 'sp', 'rgdal', 'spNetwork')
 for(p in packages){
   if(!require(p, character.only = T)){
       install.packages(p)
@@ -68,24 +68,6 @@ for(p in packages){
 ```
 
 4. Importing datas
-
-API Call (if there's time):
-
-
-getting some interesting themes such as hsgb_safra, hawkercentre, healthier_hawker_centres, lta_cycling_paths, customs_tabacco_product, monuments, museum, hotels,skyrisegreenery, tourism, eating_establishments, exercisefacilities, moneychanger, supermarkets, historicsites
-
-```{r eval=FALSE}
-# token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjc5NDgsInVzZXJfaWQiOjc5NDgsImVtYWlsIjoianVubG9uZy50b2guMjAxOUBzbXUuZWR1LnNnIiwiZm9yZXZlciI6ZmFsc2UsImlzcyI6Imh0dHA6XC9cL29tMi5kZmUub25lbWFwLnNnXC9hcGlcL3YyXC91c2VyXC9zZXNzaW9uIiwiaWF0IjoxNjMyMDk4NDEyLCJleHAiOjE2MzI1MzA0MTIsIm5iZiI6MTYzMjA5ODQxMiwianRpIjoiODE4ZWVkNjU2ZjMxZmU0ZDUwMWQyODdkMmVhODM4ZDYifQ.HIPhTPDF95Z1_0ytLsJ-JSFBhgMF3n77YVu21Ht_dU8"
-# query = "hawkercentre"
-# my_url = paste0("https://developers.onemap.sg/privateapi/themesvc","retrieveTheme?queryName=",query, "&token=",token)
-# raw_result = httr::GET(my_url)
-```
-
-```{r}
-# content = httr::content(raw_result,as="text")
-```
-
-
 
 4.1 importing Geospatial data
 
@@ -111,18 +93,32 @@ mpsz = st_read(dsn = "data/geospatial",
 st_crs(mpsz)
 ```
 
+```{r}
+sg_sf = st_read(dsn = "data/geospatial",
+                layer = "CostalOutline")
+```
+
+```{r}
+st_crs(sg_sf)
+```
+
+
+
 Setting the projected coordinate system to Singapore's standard projection system of 3414.
 
 ```{r}
 train_station_3414 = st_set_crs(train_station, 3414)
 mpsz_3414 = st_set_crs(mpsz, 3414)
+sg_sf_3414 = st_set_crs(sg_sf, 3414)
 ```
 
-```{r}
-st_crs(train_station_3414)
+To check if the change is successful:
+
+```{r echo=TRUE}
+st_crs(sg_sf_3414)
 ```
 
-Doing a plot to show the spatial points signifying mrt stations in the subzones
+Doing a plot to show the spatial points illustrating the mrt stations in the subzones
 
 ```{r}
 tm_shape(mpsz_3414) + 
@@ -152,7 +148,8 @@ hotels = read_csv("data/aspatial/OneMap_Data/hotels.csv")
 Tourism spots:
 
 ```{r}
-tourism = read_csv("data/aspatial/OneMap_Data/tourism.csv")
+tourism = read_csv("data/aspatial/OneMap_Data/tourism.csv") %>% 
+    drop_na(LATITUDE)
 ```
 
 Transforming latitude and longitude of each aspatial data to Singapore projection system
@@ -171,7 +168,7 @@ hotels_sf = st_as_sf(hotels,
                      crs = 4326) %>% 
   st_transform(crs = 3414)
 tourism_sf = st_as_sf(tourism,
-                     coords = c("Lng","Lat"),
+                     coords = c("LONGTITUDE","LATITUDE"),
                      crs = 4326) %>% 
   st_transform(crs = 3414)
 ```
@@ -214,115 +211,436 @@ From the map, we can vaguely tell that there are higher concentation of airbnb l
 
 This is merely a visual gauge of the concentration, thus we should calculate the count and density of airbnb listings, hotels and tourisms spots in each planning area.
 
-Calculating and appending the counts and density.
+We shall now move to plot the kernel density for each of the 4 spatial points dataset available. i.e. Airbnb listing, mrt station, tourism and hotels.
 
-Airbnb listing 2019 counts and density:
+### Geospatial data wrangling
 
-```{r}
-mpsz_3414$`listing count` = lengths(st_intersects(mpsz_3414, airbnb_2019_sf))
+#### 1. Converting sf data frames to sp's Spatial* class
+
+```{r echo =TRUE}
+airbnb_2019 = as_Spatial(airbnb_2019_sf)
+train_station = as_Spatial(train_station_3414)
+tourism = as_Spatial(tourism_sf)
+hotels = as_Spatial(hotels_sf)
+sg = as_Spatial(sg_sf_3414)
 ```
 
-Here, we can calculate the density of the airbnb listings by taking the number of listing in a spatial polygon and divide it by the area (m^2) and scale the values up by 1,000,000 to convert m^2 to km^2, the resultant value would have been a decimal with value as small as 10^-9 otherwise.
-
-Getting the area value of each planning subzone
+To confirm if the conversion to Spatial* class was successful
 
 ```{r}
-mpsz_3414$Area = mpsz_3414 %>% 
-  st_area()
-summary(mpsz_3414$Area)
-```
-
-Calculating the density of listing in each area:
-
-```{r}
-mpsz_3414 = mpsz_3414 %>% 
-  mutate(`listing density` = `listing count` / (Area *1000000))
-```
-
-Next, we will be doing the same for Tourism, hotel and train station.
-
-First, the count of the abovementioned:
-
-```{r}
-mpsz_3414$`tourism count` = lengths(st_intersects(mpsz_3414, tourism_sf))
-mpsz_3414$`hotel count` = lengths(st_intersects(mpsz_3414, hotels_sf))
-mpsz_3414$`train station count` = lengths(st_intersects(mpsz_3414, train_station_3414))
-```
-
-Second, the density of the abovementioned:
-
-```{r}
-mpsz_3414 = mpsz_3414 %>% 
-  mutate(`tourism density` = `tourism count` / (Area *1000000)) %>% 
-  mutate(`hotel density` = `hotel count` / (Area *1000000)) %>% 
-  mutate(`train station density` = `train station count` / (Area *1000000))
-```
-
-Plotting the counts onto the planning subzone map to illustrate distribution:
-
-Airbnb Listing 2019, using quantile to highlight the concentration of high listing count on the map.
-
-```{r}
-tm_shape(mpsz_3414)+
-  tm_fill("listing count",
-          style = "quantile",
-          palette = "Blues",
-          title = "Listing Count")+
-  tm_layout(main.title = "Distribution of Listing Count by planning subzone",
-            main.title.position = "center",
-            main.title.size = 1.2,
-            legend.height = 0.45, 
-            legend.width = 0.35,
-            frame = TRUE) +
-  tm_borders(alpha = 0.5) +
-  tm_compass(type="8star", size = 2) +
-  tm_scale_bar() +
-  tm_grid(alpha =0.2) +
-  tm_credits("Source: Planning Sub-zone boundary from Urban Redevelopment Authorithy (URA)\n and Population data from Department of Statistics DOS", 
-             position = c("left", "bottom"))
+airbnb_2019
 ```
 
 ```{r}
-ggplot(data = mpsz_3414,
-       aes(x = as.numeric(`listing count`)))+
-  geom_histogram(bins = 20,
-                 color = "black",
-                 fill = "light blue")+
-  labs(title = "Distribution of airbnb listing in Singapore",
-       subtitle = "The graph shows a very clear skewness of the distribution, such that many areas in Singapore have very few Airbnb listings",
-       x = "Airbnb Listing 2019 density (per km sq)",
-       y = "Frequency")
-```
-
-From the graph above, we can tell that the distribution of Airbnb Listing are very sparce in Singapore in the year 2019.
-
-
-```{r}
-ggplot(data = mpsz_3414,
-       aes(x = as.numeric(`tourism count`)))+
-  geom_histogram(bins = 20,
-                 color = "black",
-                 fill = "light blue")+
-  labs(title = "Distribution of tourism spots in Singapore",
-       subtitle = "The graph shows a very clear skewness of the distribution, such that many areas in Singapore have very few tourism spots.",
-       x = "Tourism density (per km sq)",
-       y = "Frequency")
+train_station
 ```
 
 ```{r}
-ggplot(data = mpsz_3414,
-       aes(x = as.numeric(`hotel count`)))+
-  geom_histogram(bins = 20,
-                 color = "black",
-                 fill = "light blue")+
-  labs(title = "Distribution of hotel in Singapore",
-       subtitle = "The graph shows that the distribution of hotel are scattered in Singapore.",
-       x = "Hotel density (per km sq)",
-       y = "Frequency")
+tourism
 ```
 
-In general, the distribution of tourism spots, hotel and airbnb listins seems to indicate scattered distribution based on the graphs above. Perhaps there could be a underlying correlation between the listing and the other 2 factors?
+```{r}
+hotels
+```
 
-We should investigate that further.
+```{r}
+sg
+```
+
+
+#### 2. Converting Spatial* class into generic sp format
+
+```{r}
+airbnb_2019_sp = as(airbnb_2019,"SpatialPoints")
+train_station_sp = as(train_station,"SpatialPoints")
+tourism_sp = as(tourism,"SpatialPoints")
+hotels_sp = as(hotels,"SpatialPoints")
+sg_sp <- as(sg, "SpatialPolygons")
+```
+
+```{r}
+airbnb_2019_sp
+```
+
+```{r}
+train_station_sp
+```
+
+```{r}
+tourism_sp
+```
+
+```{r}
+hotels_sp
+```
+
+#### 3. Converting sp format into spatstat's ppp format
+
+Airbnb 2019:
+
+```{r}
+airbnb_2019_ppp = as(airbnb_2019_sp,"ppp")
+airbnb_2019_ppp
+```
+
+```{r}
+plot(airbnb_2019_ppp)
+```
+
+```{r}
+summary(airbnb_2019_ppp)
+```
+
+based on the above output, we can tell that there is duplicated points and thus should identify and handle them as necessary.
+
+To confirm:
+
+```{r}
+any(duplicated(airbnb_2019_ppp))
+```
+
+To check the number of locations with duplicated points.
+
+```{r}
+sum(multiplicity(airbnb_2019_ppp)>1)
+```
+
+We will use the jittering solution to handle the duplicates, since any drop of data could potentially mean loss of useful information.
+
+```{r}
+airbnb_2019_ppp_jit =rjitter(airbnb_2019_ppp,
+                             retry = TRUE,
+                             nsim = 1,
+                             drop =TRUE)
+```
+
+
+```{r}
+any(duplicated(airbnb_2019_ppp_jit))
+```
+
+We have successfully ensure that all locations do not have duplicated points for the airbnb ppp object.
+
+Now to convert and check the other sp objects for duplicated values, as unlikely as it is.
+
+train station:
+
+```{r}
+train_station_ppp = as(train_station_sp,"ppp")
+train_station_ppp
+```
+
+```{r}
+plot(train_station_ppp)
+```
+
+```{r}
+summary(train_station_ppp)
+```
+
+No duplicates for train stations.
+
+Tourism:
+
+```{r}
+tourism_ppp = as(tourism_sp,"ppp")
+tourism_ppp
+```
+
+```{r}
+summary(tourism_ppp)
+```
+
+```{r}
+any(duplicated(tourism_ppp))
+```
+
+Checking the number of duplicated points:
+
+```{r}
+sum(multiplicity(tourism_ppp)>1)
+```
+
+Again, We will use the jittering solution to handle the duplicates, since any drop of data could potentially mean loss of useful information.
+
+```{r}
+tourism_ppp_jit =rjitter(tourism_ppp,
+                             retry = TRUE,
+                             nsim = 1,
+                             drop =TRUE)
+```
+
+
+```{r}
+any(duplicated(tourism_ppp_jit))
+```
+
+Lastly, Hotels:
+
+```{r}
+hotels_ppp = as(hotels_sp,"ppp")
+hotels_ppp
+```
+
+```{r}
+summary(hotels_ppp)
+```
+
+duplicated points are detected.
+
+To confirm:
+
+```{r}
+any(duplicated(hotels_ppp))
+```
+
+Checking the number of duplicated points:
+
+```{r}
+sum(multiplicity(hotels_ppp)>1)
+```
+
+Again, We will use the jittering solution to handle the duplicates.
+
+```{r}
+hotels_ppp_jit =rjitter(hotels_ppp,
+                             retry = TRUE,
+                             nsim = 1,
+                             drop =TRUE)
+```
+
+
+```{r}
+any(duplicated(hotels_ppp_jit))
+```
+
+Now all ppp objects will not have any overlappiing spatial points.
+
+### Creating owin object
+
+```{r}
+sg_owin <- as(sg_sp, "owin")
+```
+
+```{r}
+summary(sg_owin)
+```
+
+
+```{r}
+plot(sg_owin)
+```
+
+### combining the point events objects with the owin object
+
+#### Airbnb 2019
+
+```{r}
+airbnb_2019_SG_ppp_jit  = airbnb_2019_ppp_jit[sg_owin]
+```
+
+```{r}
+plot(airbnb_2019_SG_ppp_jit)
+```
+
+#### Train Station
+
+```{r}
+train_station_SG_ppp  = train_station_ppp[sg_owin]
+```
+
+```{r}
+plot(train_station_SG_ppp)
+```
+
+#### Tourism
+
+```{r}
+tourism_SG_ppp_jit  = tourism_ppp_jit[sg_owin]
+```
+
+```{r}
+plot(tourism_SG_ppp_jit)
+```
+
+#### Hotels
+
+```{r}
+hotels_SG_ppp_jit  = hotels_ppp_jit[sg_owin]
+```
+
+```{r}
+plot(hotels_SG_ppp_jit)
+```
+
+### KDE
+
+For the KDEs, the following settings are used:
++ adaptive bandwidth: since the airbnb distribution showed signs of clustering in the previous point plots.
+
+```{r}
+kde_airbnb_2019_SG_ppp_jit_adaptive = adaptive.density(airbnb_2019_SG_ppp_jit, method="kernel")
+plot(kde_airbnb_2019_SG_ppp_jit_adaptive)
+```
+
+From the kde plot for Airbnb listing 2019 above, we can see that the density range from 0 to 0.00175.
+
+```{r}
+kde_train_station_SG_ppp_jit_adaptive = adaptive.density(train_station_SG_ppp, method="kernel")
+plot(kde_train_station_SG_ppp_jit_adaptive)
+```
+
+```{r}
+kde_tourism_SG_ppp_jit_adaptive = adaptive.density(tourism_SG_ppp_jit, method="kernel")
+plot(kde_tourism_SG_ppp_jit_adaptive)
+```
+
+```{r}
+kde_hotels_SG_ppp_jit_adaptive = adaptive.density(hotels_SG_ppp_jit, method="kernel")
+plot(kde_hotels_SG_ppp_jit_adaptive)
+```
+
+#### Converting KDE output into grid object
+
+```{r}
+gridded_kde_airbnb_2019_SG_ppp_jit_adaptive <- as.SpatialGridDataFrame.im(kde_airbnb_2019_SG_ppp_jit_adaptive)
+spplot(gridded_kde_airbnb_2019_SG_ppp_jit_adaptive)
+```
+
+```{r}
+gridded_kde_train_station_SG_ppp_jit_adaptive <- as.SpatialGridDataFrame.im(kde_train_station_SG_ppp_jit_adaptive)
+spplot(gridded_kde_train_station_SG_ppp_jit_adaptive)
+```
+
+```{r}
+gridded_kde_tourism_SG_ppp_jit_adaptive <- as.SpatialGridDataFrame.im(kde_tourism_SG_ppp_jit_adaptive)
+spplot(gridded_kde_tourism_SG_ppp_jit_adaptive)
+```
+
+```{r}
+gridded_kde_hotels_SG_ppp_jit_adaptive <- as.SpatialGridDataFrame.im(kde_hotels_SG_ppp_jit_adaptive)
+spplot(gridded_kde_hotels_SG_ppp_jit_adaptive)
+```
+
+#### Converting grid output into raster
+
+```{r}
+kde_airbnb_2019_SG_ppp_jit_adaptive_raster = raster(gridded_kde_airbnb_2019_SG_ppp_jit_adaptive)
+kde_train_station_SG_ppp_jit_adaptive_raster = raster(gridded_kde_train_station_SG_ppp_jit_adaptive)
+kde_tourism_SG_ppp_jit_adaptive_raster = raster(gridded_kde_tourism_SG_ppp_jit_adaptive)
+kde_hotels_SG_ppp_jit_adaptive_raster = raster(gridded_kde_hotels_SG_ppp_jit_adaptive)
+```
+
+```{r}
+kde_airbnb_2019_SG_ppp_jit_adaptive_raster
+```
+
+```{r}
+kde_train_station_SG_ppp_jit_adaptive_raster
+```
+
+```{r}
+kde_tourism_SG_ppp_jit_adaptive_raster
+```
+
+```{r}
+kde_hotels_SG_ppp_jit_adaptive_raster
+```
+
+Setting back the crs/projection system information
+
+```{r}
+projection(kde_airbnb_2019_SG_ppp_jit_adaptive_raster) = CRS("+init=EPSG:3414")
+kde_airbnb_2019_SG_ppp_jit_adaptive_raster
+```
+
+```{r}
+projection(kde_train_station_SG_ppp_jit_adaptive_raster) = CRS("+init=EPSG:3414")
+kde_train_station_SG_ppp_jit_adaptive_raster
+```
+
+```{r}
+projection(kde_tourism_SG_ppp_jit_adaptive_raster) = CRS("+init=EPSG:3414")
+kde_tourism_SG_ppp_jit_adaptive_raster
+```
+
+```{r}
+projection(kde_hotels_SG_ppp_jit_adaptive_raster) = CRS("+init=EPSG:3414")
+kde_hotels_SG_ppp_jit_adaptive_raster
+```
+
+Displaying the raster on a map using tmap package
+
+```{r}
+tmap_mode("plot")
+airbnb_raster_map =
+  tm_shape(kde_airbnb_2019_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+train_station_raster_map = tm_shape(kde_train_station_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tourism_raster_map = tm_shape(kde_tourism_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+hotels_raster_map = tm_shape(kde_hotels_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tmap_arrange(airbnb_raster_map,train_station_raster_map,tourism_raster_map,hotels_raster_map,ncol=2,nrow = 2)
+```
+
+Using openstreetmap as the basemap
+
+```{r}
+tmap_mode("view")
+airbnb_raster_map = 
+tm_basemap("OpenStreetMap") +
+tm_shape(kde_airbnb_2019_SG_ppp_jit_adaptive_raster) + 
+  tm_raster("v", palette = "Reds", alpha = 0.5)  +
+  tm_layout(legend.position = c("right", "bottom"), frame = FALSE)
+train_station_raster_map = 
+  tm_basemap("OpenStreetMap") +
+  tm_shape(kde_train_station_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v", palette = "Blues", alpha = 0.5)+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tourism_raster_map =
+  tm_basemap("OpenStreetMap") +
+  tm_shape(kde_tourism_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v", palette = "Greens", alpha = 0.5)+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+hotels_raster_map =
+  tm_basemap("OpenStreetMap") +
+  tm_shape(kde_hotels_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v", palette = "Oranges", alpha = 0.5)+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tmap_arrange(airbnb_raster_map,train_station_raster_map,tourism_raster_map,hotels_raster_map,ncol=2,nrow = 2)
+```
+
+```{r}
+tmap_mode("plot")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
