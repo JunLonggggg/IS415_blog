@@ -13,7 +13,7 @@ output:
 
 
 ```{r setup, include=FALSE, eval=TRUE, echo=TRUE, message=FALSE,error=FALSE, fig.retina=3}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
 1.0.0 Context and analysis goal(s):
@@ -46,13 +46,18 @@ Datas:
   Aspatial
 + Airbnb listing at 30th June 2019: 30062019.csv
 + Airbnb listing at 29th June 2021: 29062021.csv
-
-Source: http://insideairbnb.com/get-the-data.html
++ Tourisms Spots: tourism.csv
++ Hotels: hotels.csv
 
   Geospatial
 + Train Stations: MRTLRTStnPtt.shp
-+ 
++ Coastal Outline: CostalOutline.shp
++ Singapore Planning Subzones: MP14_SUBZONE_WEB_PL.shp
 
+Sources:
++ http://insideairbnb.com/get-the-data.html
++ https://cran.r-project.org/web/packages/onemapsgapi/index.html
++ https://datamall.lta.gov.sg/content/datamall/en/search_datasets.html?searchText=mrt%20stations
 
 
 3. Importing Required Packages
@@ -223,6 +228,7 @@ train_station = as_Spatial(train_station_3414)
 tourism = as_Spatial(tourism_sf)
 hotels = as_Spatial(hotels_sf)
 sg = as_Spatial(sg_sf_3414)
+mpsz = as_Spatial(mpsz_3414)
 ```
 
 To confirm if the conversion to Spatial* class was successful
@@ -245,6 +251,10 @@ hotels
 
 ```{r}
 sg
+```
+
+```{r}
+mpsz
 ```
 
 
@@ -616,31 +626,1076 @@ hotels_raster_map =
 tmap_arrange(airbnb_raster_map,train_station_raster_map,tourism_raster_map,hotels_raster_map,ncol=2,nrow = 2)
 ```
 
+From the use of openstreetmap above, we are able to tell that most of the similar clusters seem to occur around places like Suntec City and Rochor.
+
+The main benefits of using a KDE map would be that we can effectively classify the spatial points into neighbourhoods and thus, be able to distinguish neighbourhood that have higher number of Airbnb listing, Train station, tourism spots or Hotels in the area. Whereas point map are not able to help us visually see how many points are within an area, if multiple points overlap each other on the map.
+
+
 ```{r}
 tmap_mode("plot")
 ```
 
+### 2nd order spatial point patterns analysis
+
+Finding out the planning subzones to do further focused analysis
+
+```{r}
+tmap_mode("plot")
+airbnb_raster_map_2 =
+  tm_shape(kde_airbnb_2019_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_borders()+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+train_station_raster_map_2 = tm_shape(kde_train_station_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_borders()+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tourism_raster_map_2 = tm_shape(kde_tourism_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_borders()+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+hotels_raster_map_2 = tm_shape(kde_hotels_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_borders()+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tmap_arrange(airbnb_raster_map_2,train_station_raster_map_2,tourism_raster_map_2,hotels_raster_map_2,ncol=2,nrow = 2)
+```
+
+Plotting the raster on planning subzones to identify subzones with possible cluster of airbnb listing in 2019
+
+```{r}
+tm_shape(kde_airbnb_2019_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_facets(by = "PLN_AREA_N",
+          free.coords = TRUE,
+          drop.shapes = TRUE)+
+    tm_borders()+
+tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+```
+
+Some subzones to zoom in on are outram, rochor, Singapore river, Kallang, geylang for airbnb listing.
+
+Plotting the raster on planning subzones to identify subzones with possible cluster of train stations.
+
+```{r}
+tm_shape(kde_train_station_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_facets(by = "PLN_AREA_N",
+          free.coords = TRUE,
+          drop.shapes = TRUE)+
+    tm_borders()+
+tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+```
+
+Some areas identified for train stations are rochor, Singapore river, downtown core, museum and Punggol.
+
+Plotting the raster on planning subzones to identify subzones with possible cluster of tourism spots.
+
+```{r}
+tm_shape(kde_tourism_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_facets(by = "PLN_AREA_N",
+          free.coords = TRUE,
+          drop.shapes = TRUE)+
+    tm_borders()+
+tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+```
+
+Some areas identified for tourism spots are rochor, Singapore river, downtown core and museum.
+
+Plotting the raster on planning subzones to identify subzones with possible cluster of hotels.
+
+```{r}
+tm_shape(kde_hotels_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_facets(by = "PLN_AREA_N",
+          free.coords = TRUE,
+          drop.shapes = TRUE)+
+    tm_borders()+
+tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+```
+
+Some areas identified for tourism spots are rochor, Singapore river, downtown core and museum.
+
+Of all the areas identified the top 4 most commonly identified areas with possible clusters are Rochor, Singapore river, downtown core and museum, thus we will be zooming into these areas for testing our hypothesis of whether there is any 2nd order effects.
+
+#### Extracting the focused subzones as study area:
+
+```{r}
+rochor = mpsz[mpsz@data$PLN_AREA_N == "ROCHOR",]
+sr = mpsz[mpsz@data$PLN_AREA_N == "SINGAPORE RIVER",]
+dc = mpsz[mpsz@data$PLN_AREA_N == "DOWNTOWN CORE",]
+museum = mpsz[mpsz@data$PLN_AREA_N == "MUSEUM",]
+```
+
+```{r}
+par(mfrow = c(2,2))
+plot(rochor, main = "Rochor")
+plot(sr, main = "Singapore River")
+plot(dc, main = "Downtown Core")
+plot(museum, main = "Museum")
+```
+
+Converting spatial point data frame into generic sp format:
+
+```{r}
+rochor_sp = as(rochor, "SpatialPolygons")
+sr_sp = as(sr, "SpatialPolygons")
+dc_sp = as(dc, "SpatialPolygons")
+museum_sp = as(museum, "SpatialPolygons")
+```
+
+Creating owin objects:
+
+```{r}
+rochor_owin = as(rochor_sp, "owin")
+sr_owin = as(sr_sp, "owin")
+dc_owin = as(dc_sp, "owin")
+museum_owin = as(museum_sp, "owin")
+```
+
+Combining airbnb 2019, train station, tourism and hotel points with the study area:
+
+Changing each point's mark to a uniquely identifiable mark where:
+
++ a = Airbnb listing in 2019
++ b = Train Station
++ c = Tourism Spots
++ d = Hotels
+
+```{r}
+marks(airbnb_2019_ppp_jit) = factor("a")
+marks(train_station_ppp) = factor("b")
+marks(tourism_ppp_jit) = factor("c")
+marks(hotels_ppp_jit) = factor("d")
+```
+
+Limiting all points to within study areas only, namely rochor, singapore river, downtown core and museum:
+
+```{r}
+rochor_ppp_jit = superimpose(airbnb_2019_ppp_jit[rochor_owin], train_station_ppp[rochor_owin], tourism_ppp_jit[rochor_owin],hotels_ppp_jit[rochor_owin])
+sr_ppp_jit = superimpose(airbnb_2019_ppp_jit[sr_owin], train_station_ppp[sr_owin], tourism_ppp_jit[sr_owin],hotels_ppp_jit[sr_owin])
+dc_ppp_jit = superimpose(airbnb_2019_ppp_jit[dc_owin], train_station_ppp[dc_owin], tourism_ppp_jit[dc_owin],hotels_ppp_jit[dc_owin])
+museum_ppp_jit = superimpose(airbnb_2019_ppp_jit[museum_owin], train_station_ppp[museum_owin], tourism_ppp_jit[museum_owin],hotels_ppp_jit[museum_owin])
+```
+
+Plotting out the spatial point on 4 different maps, identifiable by their subzone name.
+
+```{r}
+par(mfrow = c(2,2))
+plot(rochor_ppp_jit, main = "Rochor")
+plot(sr_ppp_jit, main = "Singapore River")
+plot(dc_ppp_jit, main = "Downtown Core")
+plot(museum_ppp_jit, main = "Museum")
+```
+
+KDE of each subzone, split by the different point types:
+
+Rochor:
+
+```{r}
+plot(density(split(rescale(rochor_ppp_jit, 1000))))
+```
+
+Singapore River:
+
+```{r}
+plot(density(split(rescale(sr_ppp_jit, 1000))))
+```
+
+Downtown Core:
+
+```{r}
+plot(density(split(rescale(dc_ppp_jit, 1000))))
+```
+
+Museum:
+
+```{r}
+plot(density(split(rescale(museum_ppp_jit, 1000))))
+```
+
+#### Constructing the hypothesis statement
+
+Perfroming CSR testing on the Cross L-Function
+
+1. Airbnb Listings 2019 and Train Station
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2019 and Train Station are spatially independent.
+
+H1= The distribution of Airbnb Listings 2019 and Train Station are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+rochor_Lcross_airbnb2019_trainStation <- Lcross(rochor_ppp_jit, i="a", j="b", correction='border')
+plot(rochor_Lcross_airbnb2019_trainStation, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+rochor_Lcross_airbnb2019_trainStation.csr <- envelope(rochor_ppp_jit, Lcross, i="a", j="b", correction='border', nsim=999)
+```
+
+```{r}
+plot(rochor_Lcross_airbnb2019_trainStation.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
+
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2019 and train stations are spatially independent, however, we cannot reject the null hypothesis since the empirical l-cross line is within the envelop of the 99.9% confidence interval.
+
+2. Airbnb Listings 2019 and Tourism
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2019 and Tourism are spatially independent.
+
+H1= The distribution of Airbnb Listings 2019 and Tourism are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+rochor_Lcross_airbnb2019_tourism <- Lcross(rochor_ppp_jit, i="a", j="c", correction='border')
+plot(rochor_Lcross_airbnb2019_tourism, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+rochor_Lcross_airbnb2019_tourism.csr <- envelope(rochor_ppp_jit, Lcross, i="a", j="c", correction='border', nsim=999)
+```
+
+```{r}
+plot(rochor_Lcross_airbnb2019_tourism.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
+
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2019 and tourism spots are NOT spatially independent, however, we cannot reject the null hypothesis since the empirical l-cross line is within the envelop of the 99.9% confidence interval.
+
+3. Airbnb Listings 2019 and Hotels
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2019 and Hotels are spatially independent.
+
+H1= The distribution of Airbnb Listings 2019 and Hotels are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+rochor_Lcross_airbnb2019_hotel <- Lcross(rochor_ppp_jit, i="a", j="d", correction='border')
+plot(rochor_Lcross_airbnb2019_hotel, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+rochor_Lcross_airbnb2019_hotel.csr <- envelope(rochor_ppp_jit, Lcross, i="a", j="d", correction='border', nsim=999)
+```
+
+```{r}
+plot(rochor_Lcross_airbnb2019_hotel.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
+
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2019 and Hotels are NOT spatially independent, however, we cannot reject the null hypothesis since the empirical l-cross line is within the envelop of the 99.9% confidence interval.
+
+#### Conclusion for 2nd order effect
+
+It seems that airbnb listings have spatial dependency with tourism spots and hotels while having spatial independence from train stations, we can conclude that the airbnb listings tend to appear more and closer to tourism spots and hotels, thus a possible strategic location for new airbnb listers. 
+
+## Section B: Impact of COVID 19
+
+### Exploratory Spatial Data Analysis:
+
+First let us plot the spatial points of airbnb listings in 2019 and 2021 onto the map (mpsz) to look at the spread of Airbnb Listings in the 2 years.
+
+```{r}
+airbnb_2019_map = tm_shape(mpsz_3414)+
+  tm_polygons() +
+  tm_shape(airbnb_2019_sf)+
+  tm_dots(alpha = 0.5,
+          size = 0.05,
+          col = "#CC0033")
+airbnb_2021_map = tm_shape(mpsz_3414)+
+  tm_polygons() +
+  tm_shape(airbnb_2021_sf)+
+  tm_dots(alpha = 0.5,
+          size = 0.05,
+          col = "#0066CC")
+tmap_arrange(airbnb_2019_map, airbnb_2021_map,ncol = 2, nrow = 1)
+```
+
+#### Geospatial data wrangling for airbnb 2021 to plot kde of airbnb listings for June 2019 and June 2021
+
+1. Converting sf data frames to sp's Spatial* class for airbnb_2021
+
+```{r echo =TRUE}
+airbnb_2021 = as_Spatial(airbnb_2021_sf)
+```
+
+To confirm if the conversion to Spatial* class was successfull
+
+```{r}
+airbnb_2021
+```
+
+2. Converting Spatial* class into generic sp format
+
+```{r}
+airbnb_2021_sp = as(airbnb_2021,"SpatialPoints")
+```
+
+```{r}
+airbnb_2021_sp
+```
+
+3. Converting sp format into spatstat's ppp format
+
+```{r}
+airbnb_2021_ppp = as(airbnb_2021_sp,"ppp")
+airbnb_2021_ppp
+```
+
+```{r}
+plot(airbnb_2021_ppp)
+```
+
+```{r}
+summary(airbnb_2021_ppp)
+```
+
+based on the above output, we can tell that there is duplicated points and thus should identify and handle them as necessary.
+
+To confirm:
+
+```{r}
+any(duplicated(airbnb_2021_ppp))
+```
+
+To check the number of locations with duplicated points.
+
+```{r}
+sum(multiplicity(airbnb_2021_ppp)>1)
+```
+
+We will use the jittering solution to handle the duplicates, since any drop of data could potentially mean loss of useful information.
+
+```{r}
+airbnb_2021_ppp_jit =rjitter(airbnb_2021_ppp,
+                             retry = TRUE,
+                             nsim = 1,
+                             drop =TRUE)
+```
 
 
+```{r}
+any(duplicated(airbnb_2021_ppp_jit))
+```
+
+We have successfully ensure that all locations do not have duplicated points for the airbnb 2021 ppp object.
+
+Combining the point events objects (Airbnb_2021) with the owin object:
+
+```{r}
+airbnb_2021_SG_ppp_jit  = airbnb_2021_ppp_jit[sg_owin]
+```
+
+```{r}
+plot(airbnb_2021_SG_ppp_jit)
+```
+
+### KDE
+
+For the KDEs, the following settings are used:
++ adaptive bandwidth: since the airbnb distribution of listings in 2021 also showed signs of clustering in the previous point plots.
+
+```{r}
+kde_airbnb_2021_SG_ppp_jit_adaptive = adaptive.density(airbnb_2021_SG_ppp_jit, method="kernel")
+plot(kde_airbnb_2021_SG_ppp_jit_adaptive)
+```
+
+```{r}
+plot(kde_airbnb_2019_SG_ppp_jit_adaptive)
+```
 
 
+From the kde plot for Airbnb listing 2021 above, we can see that the density range from 0 to 0.00085. Whereas from the kde plot for Airbnb listing 2019 above, we can see that the density range from 0 to 0.00175.
+
+Converting KDE output of airbnb 2021 into grid object:
+
+```{r}
+gridded_kde_airbnb_2021_SG_ppp_jit_adaptive <- as.SpatialGridDataFrame.im(kde_airbnb_2021_SG_ppp_jit_adaptive)
+spplot(gridded_kde_airbnb_2021_SG_ppp_jit_adaptive)
+```
+
+Converting grid output of airbnb 2021 into raster:
+
+```{r}
+kde_airbnb_2021_SG_ppp_jit_adaptive_raster = raster(gridded_kde_airbnb_2021_SG_ppp_jit_adaptive)
+```
+
+```{r}
+kde_airbnb_2021_SG_ppp_jit_adaptive_raster
+```
+
+Setting back the crs/projection system information for Airbnb 2021:
+
+```{r}
+projection(kde_airbnb_2021_SG_ppp_jit_adaptive_raster) = CRS("+init=EPSG:3414")
+kde_airbnb_2021_SG_ppp_jit_adaptive_raster
+```
+
+Displaying the rasters of Airbnb 2019 and 2021 on a map using tmap package
+
+```{r}
+tmap_mode("plot")
+airbnb_2019_raster_map =
+  tm_shape(kde_airbnb_2019_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+airbnb_2021_raster_map =
+  tm_shape(kde_airbnb_2021_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tmap_arrange(airbnb_2019_raster_map,airbnb_2021_raster_map,ncol=2,nrow = 1)
+```
+
+Using openstreetmap as the basemap
+
+```{r}
+tmap_mode("view")
+airbnb_2019_raster_map_osm = 
+tm_basemap("OpenStreetMap") +
+tm_shape(kde_airbnb_2019_SG_ppp_jit_adaptive_raster) + 
+  tm_raster("v", palette = "Reds", alpha = 0.5)  +
+  tm_layout(legend.position = c("right", "bottom"), frame = FALSE)
+
+airbnb_2021_raster_map_osm = 
+  tm_basemap("OpenStreetMap") +
+  tm_shape(kde_airbnb_2021_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v", palette = "Blues", alpha = 0.5)+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tmap_arrange(airbnb_2019_raster_map_osm,airbnb_2021_raster_map_osm,ncol=2,nrow = 1)
+```
+
+From the use of openstreetmap above, we are able to tell that most of the similar clusters seem to occur around places like Kallang, tanjong pagar and People's Park
 
 
+```{r}
+tmap_mode("plot")
+```
+
+### KDE of airbnb listings by room type as at June 2019 and June 2021
+
+Converting room_type into a factor data type as required by spatstat package for both airbnb 2019 and 2021.
+
+Re-instantiating Spatial* classes
+
+```{r}
+airbnb_2019 = as_Spatial(airbnb_2019_sf)
+airbnb_2021 = as_Spatial(airbnb_2021_sf)
+```
+
+```{r}
+str(airbnb_2019)
+```
+
+Subsetting spatial data to contain only room type as column:
+
+```{r}
+airbnb_2019_rmType = airbnb_2019[,"room_type"]
+airbnb_2021_rmType = airbnb_2019[,"room_type"]
+```
+
+To confirm successful extraction:
+
+```{r}
+str(airbnb_2019_rmType)
+```
+
+Converting room_type to factor data type using as.factor():
+
+```{r}
+airbnb_2019_rmType@data$room_type = as.factor(airbnb_2019_rmType@data$room_type)
+airbnb_2021_rmType@data$room_type = as.factor(airbnb_2021_rmType@data$room_type)
+```
+
+Check if factor data type conversion was successful
+
+```{r}
+str(airbnb_2019_rmType@data$room_type)
+```
+
+#### Mapping the Geospatial Layer
+
+Assigning plotted map to variable:
+
+```{r}
+airbnb_2019_map_rmType = tm_shape(mpsz_3414) +
+  tm_borders(alpha = 0.5) +
+  tmap_options(check.and.fix = TRUE) +
+tm_shape(airbnb_2019_rmType) +
+  tm_dots(col = 'room_type', size = 0.02)+
+tm_facets(by="room_type")
+airbnb_2021_map_rmType =
+  tm_shape(mpsz_3414) +
+  tm_borders(alpha = 0.5) +
+  tmap_options(check.and.fix = TRUE) +
+tm_shape(airbnb_2021_rmType) +
+  tm_dots(col = 'room_type', size = 0.02)+
+tm_facets(by="room_type")
+```
+
+Airbnb 2019 map by room type:
+
+```{r}
+airbnb_2019_map_rmType
+```
+
+Airbnb 2021 map by room type:
+
+```{r}
+airbnb_2021_map_rmType
+```
+
+#### Spatial Data Wrangling:
+
+Converting the SpatialPointsDataFrame into ppp format:
+
+Airbnb 2019:
+
+```{r}
+airbnb_2019_rmType_ppp = as(airbnb_2019_rmType,"ppp")
+plot(airbnb_2019_rmType_ppp)
+```
+
+```{r}
+summary(airbnb_2019_rmType_ppp)
+```
+
+Handling Duplicated Values
+
+```{r}
+airbnb_2019_rmType_ppp_jit = rjitter(airbnb_2019_rmType_ppp,retry = TRUE,
+                                     nsim = 1,
+                                     drop = TRUE)
+```
+
+```{r}
+any(duplicated(airbnb_2019_rmType_ppp_jit))
+```
 
 
+Airbnb 2021:
+
+```{r}
+airbnb_2021_rmType_ppp = as.ppp(airbnb_2021_rmType)
+plot(airbnb_2021_rmType_ppp)
+```
+
+```{r}
+summary(airbnb_2021_rmType_ppp)
+```
+
+Handling Duplicated Values
+
+```{r}
+airbnb_2021_rmType_ppp_jit = rjitter(airbnb_2021_rmType_ppp,retry = TRUE,
+                                     nsim = 1,
+                                     drop = TRUE)
+```
+
+```{r}
+any(duplicated(airbnb_2021_rmType_ppp_jit))
+```
+
+### KDE
+
+For the KDEs, the following settings are used:
++ adaptive bandwidth
+
+```{r}
+airbnb_2021_rmType_SG_ppp_jit = airbnb_2021_rmType_ppp_jit[sg_owin]
+airbnb_2019_rmType_SG_ppp_jit = airbnb_2019_rmType_ppp_jit[sg_owin]
+```
 
 
+```{r}
+kde_airbnb_2021_rmType_SG_ppp_jit_adaptive = adaptive.density(airbnb_2021_rmType_SG_ppp_jit, method="kernel")
+plot(kde_airbnb_2021_rmType_SG_ppp_jit_adaptive)
+```
+
+```{r}
+kde_airbnb_2019_rmType_SG_ppp_jit_adaptive = adaptive.density(airbnb_2019_rmType_SG_ppp_jit, method="kernel")
+plot(kde_airbnb_2019_rmType_SG_ppp_jit_adaptive)
+```
 
 
+From the kde plot for Airbnb listing 2021 by room type above, we can see that the density range from 0 to 0.00175. Whereas from the kde plot for Airbnb listing 2019 by room type above, we can see that the density range from 0 to 0.00175.
+
+Converting KDE output into grid object:
+
+Airbnb 2021 (room type)
+
+```{r}
+gridded_kde_airbnb_2021_rmType_SG_ppp_jit_adaptive <- as.SpatialGridDataFrame.im(kde_airbnb_2021_rmType_SG_ppp_jit_adaptive)
+spplot(gridded_kde_airbnb_2021_rmType_SG_ppp_jit_adaptive)
+```
+
+Airbnb 2019 (room type)
+
+```{r}
+gridded_kde_airbnb_2019_rmType_SG_ppp_jit_adaptive <- as.SpatialGridDataFrame.im(kde_airbnb_2019_rmType_SG_ppp_jit_adaptive)
+spplot(gridded_kde_airbnb_2019_rmType_SG_ppp_jit_adaptive)
+```
 
 
+Converting grid output into raster:
+
+```{r}
+kde_airbnb_2021_rmType_SG_ppp_jit_adaptive_raster = raster(gridded_kde_airbnb_2021_rmType_SG_ppp_jit_adaptive)
+kde_airbnb_2019_rmType_SG_ppp_jit_adaptive_raster = raster(gridded_kde_airbnb_2019_rmType_SG_ppp_jit_adaptive)
+```
+
+```{r}
+kde_airbnb_2021_rmType_SG_ppp_jit_adaptive_raster
+```
+
+Setting back the crs/projection system information:
+
+Airbnb 2021
+
+```{r}
+projection(kde_airbnb_2021_rmType_SG_ppp_jit_adaptive_raster) = CRS("+init=EPSG:3414")
+kde_airbnb_2021_rmType_SG_ppp_jit_adaptive_raster
+```
+
+Airbnb 2019
+
+```{r}
+projection(kde_airbnb_2019_rmType_SG_ppp_jit_adaptive_raster) = CRS("+init=EPSG:3414")
+kde_airbnb_2019_rmType_SG_ppp_jit_adaptive_raster
+```
+
+Displaying the rasters of Airbnb 2019 and 2021 on a map using tmap package
+
+```{r}
+tmap_mode("plot")
+airbnb_2019_rmType_raster_map =
+  tm_shape(kde_airbnb_2019_rmType_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+airbnb_2021_rmType_raster_map =
+  tm_shape(kde_airbnb_2021_rmType_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tmap_arrange(airbnb_2019_rmType_raster_map,airbnb_2021_rmType_raster_map,ncol=2,nrow = 1)
+```
+
+Using openstreetmap as the basemap
+
+```{r}
+tmap_mode("view")
+airbnb_2019_rmType_raster_map_osm = 
+tm_basemap("OpenStreetMap") +
+tm_shape(kde_airbnb_2019_rmType_SG_ppp_jit_adaptive_raster) + 
+  tm_raster("v", palette = "Reds", alpha = 0.5)  +
+  tm_layout(legend.position = c("right", "bottom"), frame = FALSE)
+
+airbnb_2021_rmType_raster_map_osm = 
+  tm_basemap("OpenStreetMap") +
+  tm_shape(kde_airbnb_2021_rmType_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v", palette = "Blues", alpha = 0.5)+
+  tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+tmap_arrange(airbnb_2019_rmType_raster_map_osm,airbnb_2021_rmType_raster_map_osm,ncol=2,nrow = 1)
+```
+
+From the use of openstreetmap above, we are able to tell that most of the similar clusters seem to occur around places like Kallang, tanjong pagar and People's Park
 
 
+```{r}
+tmap_mode("plot")
+```
+
+### Second-order Spatial Point Patterns Analysis
+
+#### Extracting study area
+
+Plotting the raster on planning subzones to identify subzones with possible cluster of airbnb listing in 2021 by room types
+
+```{r}
+tm_shape(kde_airbnb_2021_rmType_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_facets(by = "PLN_AREA_N",
+          free.coords = TRUE,
+          drop.shapes = TRUE)+
+    tm_borders()+
+tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+```
+
+From the above plot, we can see that subzones like GEYLANG, ROCHOR and RIVER VALLEY shows signs of clustering, thus we can possibly consider them as possible study areas
+
+```{r}
+tm_shape(kde_airbnb_2019_rmType_SG_ppp_jit_adaptive_raster)+
+  tm_raster("v")+
+  tm_shape(mpsz_3414)+
+  tm_facets(by = "PLN_AREA_N",
+          free.coords = TRUE,
+          drop.shapes = TRUE)+
+    tm_borders()+
+tm_layout(legend.position = c("right","bottom"),frame = FALSE)
+```
+
+From the above plot, we can see that subzones like GEYLANG, OUTRAM, ROCHOR and RIVER VALLEY shows signs of clustering, thus we can possibly consider them as possible study areas
+
+Out of the 2 plots, the coomon subzones with signs of clusterings are GEYLANG, ROCHOR and RIVER VALLEY, they will thus be our study areas. 
+
+Since rochor have already been extracted, extraction will only be done on GEYLANG and RIVER VALLEY
+
+```{r}
+geylang = mpsz[mpsz@data$PLN_AREA_N == "GEYLANG",]
+plot(geylang)
+```
+
+```{r}
+rv = mpsz[mpsz@data$PLN_AREA_N == "RIVER VALLEY",]
+plot(rv)
+```
+
+#### Converting the spatial polygon data frames into generic sp format
+
+```{r}
+geylang_sp = as(geylang,"SpatialPolygons")
+rv_sp = as(rv,"SpatialPolygons")
+```
+
+#### Creating owin object
+
+```{r}
+geylang_owin = as(geylang_sp,"owin")
+rv_owin = as(rv_sp,"owin")
+```
+
+#### Combining spatial points and the stuy areas
+
+Airbnb 2019
+
+```{r}
+airbnb_2019_rmType_geylang_ppp = airbnb_2019_rmType_ppp_jit[geylang_owin]
+airbnb_2019_rmType_rochor_ppp = airbnb_2019_rmType_ppp_jit[rochor_owin]
+airbnb_2019_rmType_rv_ppp = airbnb_2019_rmType_ppp_jit[rv_owin]
+```
+
+Geylang:
+
+```{r}
+plot(airbnb_2019_rmType_geylang_ppp)
+```
+
+First order Spatial Point Patterns Analysis
+
+```{r}
+plot(density(split(rescale(airbnb_2019_rmType_geylang_ppp, 1000))))
+```
+
+```{r}
+intensity(rescale(airbnb_2019_rmType_geylang_ppp, 1000))
+```
+
+Rochor
+
+```{r}
+plot(airbnb_2019_rmType_rochor_ppp)
+```
+
+First order Spatial Point Patterns Analysis
+
+```{r}
+plot(density(split(rescale(airbnb_2019_rmType_rochor_ppp, 1000))))
+```
+
+```{r}
+intensity(rescale(airbnb_2019_rmType_rochor_ppp, 1000))
+```
+
+River Valley
+
+```{r}
+plot(airbnb_2019_rmType_rv_ppp)
+```
+
+First order Spatial Point Patterns Analysis
+
+```{r}
+plot(density(split(rescale(airbnb_2019_rmType_rv_ppp, 1000))))
+```
+
+```{r}
+intensity(rescale(airbnb_2019_rmType_rv_ppp, 1000))
+```
+
+In general, there seems to be higher first order effect for room type: Entire home/apt than the other room types for all subzones in 2019. This could mean that the area promotes "Entire home/apt" airbnb listings more than other room types.
+
+Airbnb 2021
+
+```{r}
+airbnb_2021_rmType_geylang_ppp = airbnb_2021_rmType_ppp_jit[geylang_owin]
+airbnb_2021_rmType_rochor_ppp = airbnb_2021_rmType_ppp_jit[rochor_owin]
+airbnb_2021_rmType_rv_ppp = airbnb_2021_rmType_ppp_jit[rv_owin]
+```
+
+Geylang:
+
+```{r}
+plot(airbnb_2021_rmType_geylang_ppp)
+```
+
+First order Spatial Point Patterns Analysis
+
+```{r}
+plot(density(split(rescale(airbnb_2021_rmType_geylang_ppp, 1000))))
+```
+
+```{r}
+intensity(rescale(airbnb_2021_rmType_geylang_ppp, 1000))
+```
+
+Rochor
+
+```{r}
+plot(airbnb_2021_rmType_rochor_ppp)
+```
+
+First order Spatial Point Patterns Analysis
+
+```{r}
+plot(density(split(rescale(airbnb_2021_rmType_rochor_ppp, 1000))))
+```
+
+```{r}
+intensity(rescale(airbnb_2021_rmType_rochor_ppp, 1000))
+```
+
+River Valley
+
+```{r}
+plot(airbnb_2021_rmType_rv_ppp)
+```
+
+First order Spatial Point Patterns Analysis
+
+```{r}
+plot(density(split(rescale(airbnb_2021_rmType_rv_ppp, 1000))))
+```
+
+```{r}
+intensity(rescale(airbnb_2021_rmType_rv_ppp, 1000))
+```
+
+In general, there seems to be higher first order effect for room type: Entire home/apt than the other room types for all subzones in 2021 as well This could mean that the area promotes "Entire home/apt" airbnb listings more than other room types in both years and that the changes to first order effect does not seem to be affected by COVID-19.
+
+#### Second-order Multi-type Point Patterns Analysis: Cross L-Function
+
+In all the KDE plots above for subzones, room type of "Entire home/apt" has the highest density, followed by "Private room" and "Shared room". Thus we will look at the cross L-function for "Entire home/apt" vs "Private room"
+
+#### Constructing the hypothesis statement
+
+Perfroming CSR testing on the Cross L-Function
+
+Airbnb 2019 room types:
+
+1. Airbnb Listings 2019 room type (geylang)
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2019 room types, Entire home/apt and Private rooms, in subzone geylang, are spatially independent.
+
+H1= The distribution of Airbnb Listings 2019 room types, Entire home/apt and Private rooms, in subzone geylang, are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+airbnb_2019_rmType_geylang_Lcross <- Lcross(airbnb_2019_rmType_geylang_ppp, i="Entire home/apt", j="Private room", correction='border')
+plot(airbnb_2019_rmType_geylang_Lcross, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+airbnb_2019_rmType_geylang_Lcross.csr <- envelope(airbnb_2019_rmType_geylang_ppp, Lcross, i="Entire home/apt", j="Private room", correction='border', nsim=999)
+```
+
+```{r}
+plot(airbnb_2019_rmType_geylang_Lcross.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
 
 
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2019 room types, Entire home/apt and Private rooms, in geylang, are not spatially independent, we can also reject the null hypothesis since the empirical l-cross line is beyond the envelop of the 99.9% confidence interval.
+
+2. Airbnb Listings 2019 room type (rochor)
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2019 room types, Entire home/apt and Private rooms, in subzone rochor, are spatially independent.
+
+H1= The distribution of Airbnb Listings 2019 room types, Entire home/apt and Private rooms, in subzone rochor, are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+airbnb_2019_rmType_rochor_Lcross <- Lcross(airbnb_2019_rmType_rochor_ppp, i="Entire home/apt", j="Private room", correction='border')
+plot(airbnb_2019_rmType_rochor_Lcross, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+airbnb_2019_rmType_rochor_Lcross.csr <- envelope(airbnb_2019_rmType_rochor_ppp, Lcross, i="Entire home/apt", j="Private room", correction='border', nsim=999)
+```
+
+```{r}
+plot(airbnb_2019_rmType_rochor_Lcross.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
 
 
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2019 room types, Entire home/apt and Private rooms, in rochor, are not spatially independent, however, we cannot reject the null hypothesis since the empirical l-cross line is within the envelop of the 99.9% confidence interval.
 
+3. Airbnb Listings 2019 room type (river valley)
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2019 room types, Entire home/apt and Private rooms, in subzone river valley, are spatially independent.
+
+H1= The distribution of Airbnb Listings 2019 room types, Entire home/apt and Private rooms, in subzone river valley, are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+airbnb_2019_rmType_rv_Lcross <- Lcross(airbnb_2019_rmType_rv_ppp, i="Entire home/apt", j="Private room", correction='border')
+plot(airbnb_2019_rmType_rv_Lcross, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+airbnb_2019_rmType_rv_Lcross.csr <- envelope(airbnb_2019_rmType_rv_ppp, Lcross, i="Entire home/apt", j="Private room", correction='border', nsim=999)
+```
+
+```{r}
+plot(airbnb_2019_rmType_rv_Lcross.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
+
+
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2019 room types, Entire home/apt and Private rooms, in river valley, are not spatially independent, we can also reject the null hypothesis since the empirical l-cross line is beyond the envelop of the 99.9% confidence interval.
+
+Airbnb 2021 room types:
+
+1. Airbnb Listings 2021 room type (geylang)
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2021 room types, Entire home/apt and Private rooms, in subzone geylang, are spatially independent.
+
+H1= The distribution of Airbnb Listings 2021 room types, Entire home/apt and Private rooms, in subzone geylang, are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+airbnb_2021_rmType_geylang_Lcross <- Lcross(airbnb_2021_rmType_geylang_ppp, i="Entire home/apt", j="Private room", correction='border')
+plot(airbnb_2021_rmType_geylang_Lcross, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+airbnb_2021_rmType_geylang_Lcross.csr <- envelope(airbnb_2021_rmType_geylang_ppp, Lcross, i="Entire home/apt", j="Private room", correction='border', nsim=999)
+```
+
+```{r}
+plot(airbnb_2021_rmType_geylang_Lcross.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
+
+
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2021 room types, Entire home/apt and Private rooms, in geylang, are not spatially independent, we can also reject the null hypothesis since the empirical l-cross line is beyond the envelop of the 99.9% confidence interval.
+
+2. Airbnb Listings 2021 room type (rochor)
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2021 room types, Entire home/apt and Private rooms, in subzone rochor, are spatially independent.
+
+H1= The distribution of Airbnb Listings 2021 room types, Entire home/apt and Private rooms, in subzone rochor, are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+airbnb_2021_rmType_rochor_Lcross <- Lcross(airbnb_2021_rmType_rochor_ppp, i="Entire home/apt", j="Private room", correction='border')
+plot(airbnb_2021_rmType_rochor_Lcross, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+airbnb_2021_rmType_rochor_Lcross.csr <- envelope(airbnb_2021_rmType_rochor_ppp, Lcross, i="Entire home/apt", j="Private room", correction='border', nsim=999)
+```
+
+```{r}
+plot(airbnb_2021_rmType_rochor_Lcross.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
+
+
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2021 room types, Entire home/apt and Private rooms, in rochor, are not spatially independent, however, we cannot reject the null hypothesis since the empirical l-cross line is within the envelop of the 99.9% confidence interval.
+
+3. Airbnb Listings 2021 room type (river valley)
+
+The hypothesis and test are as follows:
+
+Ho = The distribution of Airbnb Listings 2021 room types, Entire home/apt and Private rooms, in subzone river valley, are spatially independent.
+
+H1= The distribution of Airbnb Listings 2021 room types, Entire home/apt and Private rooms, in subzone river valley, are NOT at spatially independent.
+
+The null hypothesis will be rejected if p-value is smaller than alpha value of 0.001 (i.e. at 99.9% confident interval).
+
+```{r}
+airbnb_2021_rmType_rv_Lcross <- Lcross(airbnb_2021_rmType_rv_ppp, i="Entire home/apt", j="Private room", correction='border')
+plot(airbnb_2021_rmType_rv_Lcross, . -r ~ r, 
+     xlab = "distance(m)", 
+     xlim=c(0, 500))
+```
+
+```{r}
+set.seed(1234)
+airbnb_2021_rmType_rv_Lcross.csr <- envelope(airbnb_2021_rmType_rv_ppp, Lcross, i="Entire home/apt", j="Private room", correction='border', nsim=999)
+```
+
+```{r}
+plot(airbnb_2021_rmType_rv_Lcross.csr, . -r ~ r, xlab="distance(m)", xlim=c(0,500))
+```
+
+
+Based on the plot above for cross L-function, we know that the distribution of Airbnb listing in 2021 room types, Entire home/apt and Private rooms, in river valley, are not spatially independent, we can also reject the null hypothesis since the empirical l-cross line is beyond the envelop of the 99.9% confidence interval.
+
+### Conclusion
+
+In conclusion, the 2nd order spatial point patterns analysis indicates that room types of both year seems to be largely unchanged even with covid-19.
 
 
 
