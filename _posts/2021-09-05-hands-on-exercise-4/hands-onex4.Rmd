@@ -28,19 +28,19 @@ packages = c('maptools', 'sf', 'raster','spatstat', 'tmap')
 
 
 ```{r}
-childcare_sf = st_read("../../Hands-on_Ex04/data/child-care-services-geojson.geojson") %>% 
+childcare_sf = st_read("data/child-care-services-geojson.geojson") %>% 
   st_transform(crs = 3414)
 st_geometry(childcare_sf)
 ```
 
 ```{r}
-mpsz_sf = st_read(dsn = "../../Hands-on_Ex04/data",
+mpsz_sf = st_read(dsn = "data",
                layer = "MP14_SUBZONE_WEB_PL")
 st_geometry(mpsz_sf)
 ```
 
 ```{r}
-sg_sf = st_read(dsn = "../../Hands-on_Ex04/data",
+sg_sf = st_read(dsn = "data",
                layer = "CostalOutline")
 st_geometry(sg_sf)
 ```
