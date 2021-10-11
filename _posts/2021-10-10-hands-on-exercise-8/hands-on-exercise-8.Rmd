@@ -170,6 +170,8 @@ tm_shape(shan_sf) +
   tm_layout(outer.margins=0, asp=0)
 ```
 
+Tag highly correlated variables
+
 ```{r}
 cluster_vars.cor = cor(ict_derived[,12:17])
 corrplot.mixed(cluster_vars.cor,
@@ -180,6 +182,8 @@ corrplot.mixed(cluster_vars.cor,
                tl.col = "black")
 ```
 
+Dropping all the geometry from this layer of shan_sf
+
 ```{r}
 cluster_vars <- shan_sf %>%
   st_set_geometry(NULL) %>%
@@ -187,20 +191,28 @@ cluster_vars <- shan_sf %>%
 head(cluster_vars,10)
 ```
 
+Changing the row label to be the value of township name
+
 ```{r}
 row.names(cluster_vars) <- cluster_vars$"TS.x"
 head(cluster_vars,10)
 ```
+
+Removing the township name from the dataframe since it cannot be passed into the clustering analysis
 
 ```{r}
 shan_ict <- select(cluster_vars, c(2:6))
 head(shan_ict, 10)
 ```
 
+One method of normalization is the min_max standardisation below:
+
 ```{r}
 shan_ict.std <- normalize(shan_ict)
 summary(shan_ict.std)
 ```
+
+all values ranges from 0 to 1
 
 ```{r}
 shan_ict.z <- scale(shan_ict)
@@ -235,6 +247,8 @@ ggarrange(r, s, z,
           nrow = 1)
 ```
 
+We are using the euclidean method as our distance matrix. Input data must be in matrix data format.
+
 ```{r}
 proxmat <- dist(shan_ict, method = 'euclidean')
 ```
@@ -250,6 +264,8 @@ hclust_ward <- hclust(proxmat, method = 'ward.D')
 ```{r}
 plot(hclust_ward, cex = 0.6)
 ```
+
+Exploring the use of other clustering algorithm by looping through in a function:
 
 ```{r}
 m <- c( "average", "single", "complete", "ward")

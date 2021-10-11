@@ -1816,6 +1816,7 @@ $ geometry   &lt;MULTIPOLYGON [°]&gt; MULTIPOLYGON (((96.96001 23..., MULT~</co
 </div>
 <p><img src="hands-on-exercise-8_files/figure-html5/unnamed-chunk-18-1.png" width="624" /></p>
 </div>
+<p>Tag highly correlated variables</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="sourceCode">
 <pre class="sourceCode r"><code class="sourceCode r"><span class='va'>cluster_vars.cor</span> <span class='op'>=</span> <span class='fu'><a href='https://rdrr.io/r/stats/cor.html'>cor</a></span><span class='op'>(</span><span class='va'>ict_derived</span><span class='op'>[</span>,<span class='fl'>12</span><span class='op'>:</span><span class='fl'>17</span><span class='op'>]</span><span class='op'>)</span>
@@ -1829,6 +1830,7 @@ $ geometry   &lt;MULTIPOLYGON [°]&gt; MULTIPOLYGON (((96.96001 23..., MULT~</co
 </div>
 <p><img src="hands-on-exercise-8_files/figure-html5/unnamed-chunk-19-1.png" width="624" /></p>
 </div>
+<p>Dropping all the geometry from this layer of shan_sf</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="sourceCode">
 <pre class="sourceCode r"><code class="sourceCode r"><span class='va'>cluster_vars</span> <span class='op'>&lt;-</span> <span class='va'>shan_sf</span> <span class='op'>%&gt;%</span>
@@ -1849,6 +1851,7 @@ $ geometry   &lt;MULTIPOLYGON [°]&gt; MULTIPOLYGON (((96.96001 23..., MULT~</co
 9  Nawnghkio 349.3359 547.9456   38.44960  323.0201    15.76465
 10   Kyaukme 210.9548 601.1773   39.58267  372.4930    30.94709</code></pre>
 </div>
+<p>Changing the row label to be the value of township name</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="sourceCode">
 <pre class="sourceCode r"><code class="sourceCode r"><span class='fu'><a href='https://rdrr.io/r/base/row.names.html'>row.names</a></span><span class='op'>(</span><span class='va'>cluster_vars</span><span class='op'>)</span> <span class='op'>&lt;-</span> <span class='va'>cluster_vars</span><span class='op'>$</span><span class='st'>"TS.x"</span>
@@ -1878,6 +1881,7 @@ Lawksawk     21.76677
 Nawnghkio    15.76465
 Kyaukme      30.94709</code></pre>
 </div>
+<p>Removing the township name from the dataframe since it cannot be passed into the clustering analysis</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="sourceCode">
 <pre class="sourceCode r"><code class="sourceCode r"><span class='va'>shan_ict</span> <span class='op'>&lt;-</span> <span class='fu'>select</span><span class='op'>(</span><span class='va'>cluster_vars</span>, <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span><span class='op'>(</span><span class='fl'>2</span><span class='op'>:</span><span class='fl'>6</span><span class='op'>)</span><span class='op'>)</span>
@@ -1896,6 +1900,7 @@ Lawksawk  387.1017 630.0035   31.51366  320.5686    21.76677
 Nawnghkio 349.3359 547.9456   38.44960  323.0201    15.76465
 Kyaukme   210.9548 601.1773   39.58267  372.4930    30.94709</code></pre>
 </div>
+<p>One method of normalization is the min_max standardisation below:</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="sourceCode">
 <pre class="sourceCode r"><code class="sourceCode r"><span class='va'>shan_ict.std</span> <span class='op'>&lt;-</span> <span class='fu'>normalize</span><span class='op'>(</span><span class='va'>shan_ict</span><span class='op'>)</span>
@@ -1917,6 +1922,7 @@ Kyaukme   210.9548 601.1773   39.58267  372.4930    30.94709</code></pre>
  3rd Qu.:0.29868  
  Max.   :1.00000  </code></pre>
 </div>
+<p>all values ranges from 0 to 1</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="sourceCode">
 <pre class="sourceCode r"><code class="sourceCode r"><span class='va'>shan_ict.z</span> <span class='op'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/base/scale.html'>scale</a></span><span class='op'>(</span><span class='va'>shan_ict</span><span class='op'>)</span>
@@ -1967,6 +1973,7 @@ COMPUTER_PR  1.80     2.96 0.13</code></pre>
 </div>
 <p><img src="hands-on-exercise-8_files/figure-html5/unnamed-chunk-25-1.png" width="624" /></p>
 </div>
+<p>We are using the euclidean method as our distance matrix. Input data must be in matrix data format.</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="sourceCode">
 <pre class="sourceCode r"><code class="sourceCode r"><span class='va'>proxmat</span> <span class='op'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/stats/dist.html'>dist</a></span><span class='op'>(</span><span class='va'>shan_ict</span>, method <span class='op'>=</span> <span class='st'>'euclidean'</span><span class='op'>)</span>
@@ -2597,6 +2604,7 @@ Namhsan    450.97869 270.79121 430.02019  63.67613</code></pre>
 </div>
 <p><img src="hands-on-exercise-8_files/figure-html5/unnamed-chunk-29-1.png" width="624" /></p>
 </div>
+<p>Exploring the use of other clustering algorithm by looping through in a function:</p>
 <div class="layout-chunk" data-layout="l-body">
 <div class="sourceCode">
 <pre class="sourceCode r"><code class="sourceCode r"><span class='va'>m</span> <span class='op'>&lt;-</span> <span class='fu'><a href='https://rdrr.io/r/base/c.html'>c</a></span><span class='op'>(</span> <span class='st'>"average"</span>, <span class='st'>"single"</span>, <span class='st'>"complete"</span>, <span class='st'>"ward"</span><span class='op'>)</span>
