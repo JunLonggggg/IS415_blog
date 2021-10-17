@@ -5,20 +5,6 @@ description: |
 output_dir: "_site"
 navbar:
   right:
-    # - text: "Hands-On Exercises"
-    #   menu:
-    #     - text: "Hands-On Exercise 3"
-    #       href: posts/2021-09-20-hand-on-exercise-3/index.html
-    #     - text: "Hands-On Exercise 4"
-    #       href: posts/2021-09-05-hands-on-exercise-4/index.html
-    #     - text: "Hands-On Exercise 6"
-    #       href: posts/2021-09-20-hands-on-exercise-6/index.html
-    #     - text: "Hands-On Exercise 7"
-    #       href: posts/2021-09-26-hands-on-exercise-7/index.html
-    #     - text: "Hands-On Exercise 8"
-    #       href: posts/2021-10-10-hands-on-exercise-8/index.html
-    #     - text: "Hands-On Exercise 9"
-    #       href: posts/2021-10-18-hands-on-exercise-9/index.html
     - text: "In-class Exercises"
       menu:
         - text: "In-Class Exercise 2"
