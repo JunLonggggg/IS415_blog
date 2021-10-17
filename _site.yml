@@ -5,7 +5,7 @@ description: |
 output_dir: "_site"
 navbar:
   right:
-    - text: "In-class Exercises"
+    - text: "In-class Exercise"
       menu:
         - text: "In-Class Exercise 2"
           href: posts/2021-08-23-in-class-exercise-2/index.html
