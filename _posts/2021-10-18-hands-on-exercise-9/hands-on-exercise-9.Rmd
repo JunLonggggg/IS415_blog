@@ -58,6 +58,8 @@ st_bbox(mpsz_svy21)
 
 ### Importing Aspatial data
 
+Data are all in Km
+
 ```{r}
 condo_resale = read_csv("data/aspatial/Condo_resale_2015.csv")
 ```
@@ -160,7 +162,7 @@ tmap_mode("view")
 ```
 
 ```{r}
-tmap_options(check.and.fix = TRUE)+
+tmap_options(check.and.fix = TRUE)+ # the sf package have a little bit of problem since their upgrade to s3, tmap mauy not understand the model well and flags out error msg. To avoid it, keep the sf package at lower version, 0.9-8 would be a good version to use.
 tm_shape(mpsz_svy21)+
   tm_polygons() +
 tm_shape(condo_resale.sf) +  
@@ -421,7 +423,7 @@ There are two approaches to determine the stopping rule.
 bw.fixed <- bw.gwr(formula = SELLING_PRICE ~ AREA_SQM + AGE  + PROX_CBD + PROX_CHILDCARE + PROX_ELDERLYCARE  + PROX_URA_GROWTH_AREA + PROX_MRT  + PROX_PARK  + PROX_PRIMARY_SCH + PROX_SHOPPING_MALL  + PROX_BUS_STOP  + NO_Of_UNITS + FAMILY_FRIENDLY + FREEHOLD, data=condo_resale.sp, approach="CV", kernel="gaussian", adaptive=FALSE, longlat=FALSE)
 ```
 
-The result shows that the recommended bandwidth is 971.3398 metres. The reason why it is in metres is because the projection system for CRS 3414 is in metres.
+The result shows that the recommended bandwidth is 971.4443 metres. The reason why it is in metres is because the projection system for CRS 3414 is in metres.
 
 #### GWmodel method - fixed bandwith
 
