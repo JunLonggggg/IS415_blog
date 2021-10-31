@@ -1,0 +1,408 @@
+---
+title: "hands-on-exercise-10"
+description: |
+  In this lesson, we will be learning about Spatial Interaction Models.
+author:
+  - name: Toh Jun Long
+    url: https://linkedin.com/in/tohjunlong
+date: 10-25-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Before we getting started, it is important for us to install the necessary R packages and launch them into RStudio environment.
+
+The R packages need for this exercise are as follows:
+
+* Spatial data handling
++ sf, sp, geojsonio, stplanr.
+* Attribute data handling
++ tidyverse, especially readr and dplyr, reshape2,
+* thematic mapping
++ tmap
+* Statistical graphic
++ ggplot2
+* Statistical analysis
++ caret
+
+The code chunk below installs and launches these R packages into RStudio environment.
+
+```{r}
+packages = c('tmap', 'tidyverse',
+             'sp', 'caret',
+             'geojsonio', 'reshape2', 
+             'broom')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+```{r}
+# library(devtools)
+# install_version("sf", version = "0.9-8", repos = "http://cran.us.r-project.org")
+```
+
+```{r}
+# library(devtools)
+# install_version("stplanr", version = "0.8.4", repos = "http://cran.us.r-project.org")
+```
+
+```{r}
+library(sf)
+library(stplanr)
+```
+
+```{r}
+Aus <- geojson_read("https://www.dropbox.com/s/0fg80nzcxcsybii/GCCSA_2016_AUST_New.geojson?raw=1", what = "sp")
+
+```
+
+```{r}
+Ausdata <- Aus@data
+```
+
+```{r}
+AusSF <- st_as_sf(Aus) %>% 
+  st_set_crs(4283) 
+```
+
+```{r}
+st_is_valid(AusSF)
+```
+
+```{r}
+st_make_valid(AusSF)
+```
+
+```{r}
+st_is_valid(AusSF)
+```
+
+Plot the boundary layer
+
+```{r}
+tmap_options(check.and.fix = TRUE)
+tmap_mode("plot")
+qtm(AusSF)
+```
+
+# Displaying data table
+
+```{r}
+head(AusSF, 10)
+```
+
+```{r}
+Aus <- as(AusSF, "Spatial")
+```
+
+# Calculating a distance matrix
+
+```{r}
+AusProj <- spTransform(Aus,"+init=epsg:3112")
+summary(AusProj)
+```
+
+```{r}
+dist <- spDists(AusProj)
+dist 
+```
+
+```{r}
+distPair <- melt(dist)
+head(distPair, 10)
+```
+
+```{r}
+distPair$value <- distPair$value / 1000
+head(distPair, 10)
+```
+
+## Converting distance matrix into distance pair list
+
+```{r}
+distPair <- melt(dist)
+head(distPair, 10)
+```
+
+## Converting unit of measurement from metres into km
+
+```{r}
+distPair$value <- distPair$value / 1000
+head(distPair, 10)
+
+```
+
+# Importing Interaction Data
+
+Importing in the migration data into rstudio
+
+```{r}
+mdata <- read_csv("https://www.dropbox.com/s/wi3zxlq5pff1yda/AusMig2011.csv?raw=1",col_names = TRUE)
+glimpse(mdata)
+```
+
+## Combining the imported migration data
+
+* Add in generated distance data
+* Create new column of total flows, excluding flows that occur within an area (intra-area)
+
+
+
+```{r}
+mdata$FlowNoIntra <- ifelse(mdata$Orig_code == mdata$Dest_code,0,mdata$Flow)
+mdata$offset <- ifelse(mdata$Orig_code == mdata$Dest_code,0.0000000001,1)
+```
+
+Ordering the spatial data by code order.
+
+```{r}
+mdata$dist <- distPair$value 
+```
+
+Setting intr-zonal distance to be near 0 and not exactly 0
+
+```{r}
+mdata$dist <- ifelse(mdata$dist == 0,5,mdata$dist)
+```
+
+```{r}
+glimpse(mdata)
+```
+
+# Visualising with desire line
+
+We will not plot the intra-zonal flows. The code chunk below will be used to remove intra-zonal flows.
+
+```{r}
+mdatasub <- mdata[mdata$Orig_code!=mdata$Dest_code,]
+```
+
+Removing all exceprt origin, dest and flow cols
+
+```{r}
+mdatasub_skinny <- mdatasub[,c(2,4,5)]
+travel_network <- od2line(flow = mdatasub_skinny, 
+                          zones = Aus)
+```
+
+Converting to WGS84 projection
+
+```{r}
+travel_networkwgs <- spTransform(travel_network,"+init=epsg:4326" )
+```
+
+Same for Aus layer
+
+```{r}
+AusWGS <- spTransform(Aus,"+init=epsg:4326" )
+```
+
+Setting a more meaningful value for line widths
+
+```{r}
+w <- mdatasub_skinny$Flow / max(mdatasub_skinny$Flow) * 10
+```
+
+Plotting the interaction line onto a map
+
+```{r}
+plot(travel_networkwgs, lwd = w)
+plot(AusWGS, add=T)
+```
+
+# Building Spatial Interaction Models
+
+## Unconstrained Spatial Interaction Model
+
+```{r}
+uncosim <- glm(Flow ~ log(vi1_origpop)+log(wj3_destmedinc)+log(dist), na.action = na.exclude, family = poisson(link = "log"), data = mdatasub)
+summary(uncosim)
+```
+
+## Fitting the model
+
+```{r}
+mdatasub$fitted <- fitted(uncosim)
+```
+
+## (Optional) Another method to calculate the estimates.
+
+```{r}
+k <- uncosim$coefficients[1]
+mu <- uncosim$coefficients[2]
+alpha <- uncosim$coefficients[3]
+beta <- -uncosim$coefficients[4]
+```
+
+```{r}
+mdatasub$unconstrainedEst2 <- exp(k+(mu*log(mdatasub$vi1_origpop))+(alpha*log(mdatasub$wj3_destmedinc))-(beta*log(mdatasub$dist)))
+```
+
+```{r}
+mdatasub$unconstrainedEst2 <- (exp(k)*exp(mu*log(mdatasub$vi1_origpop))*exp(alpha*log(mdatasub$wj3_destmedinc))*exp(-beta*log(mdatasub$dist)))
+```
+
+## Saving the fitted values
+
+```{r}
+mdatasub$unconstrainedEst2 <- round(mdatasub$unconstrainedEst2,0)
+sum(mdatasub$unconstrainedEst2)
+```
+
+```{r}
+mdatasubmat2 <- dcast(mdatasub, Orig_code ~ Dest_code, sum, value.var = "unconstrainedEst2", margins=c("Orig_code", "Dest_code"))
+mdatasubmat2
+```
+
+Compare with original matrix
+
+```{r}
+mdatasubmat <- dcast(mdatasub, Orig_code ~ Dest_code, sum, value.var = "Flow", margins=c("Orig_code", "Dest_code"))
+mdatasubmat
+```
+
+```{r}
+ggplot(data=mdatasub, 
+       aes(y = `Flow`, 
+           x = `unconstrainedEst2`))+
+  geom_point(color="black", fill="light blue")
+```
+
+## Assessing the model performance
+
+```{r}
+postResample(mdatasub$Flow,mdatasub$unconstrainedEst2)
+```
+
+# Origin Constrained Spatial Interaction Model
+
+```{r}
+origSim <- glm(Flow ~ Orig_code+log(wj3_destmedinc)+log(dist)-1, na.action = na.exclude, family = poisson(link = "log"), data = mdatasub)
+#let's have a look at it's summary...
+summary(origSim)
+```
+
+```{r}
+mdatasub$origSimFitted <- round(fitted(origSim),0)
+```
+
+create pivot table to turn paired list into matrix.
+
+```{r}
+mdatasubmat3 <- dcast(mdatasub, Orig_code ~ Dest_code, sum, value.var = "origSimFitted", margins=c("Orig_code", "Dest_code"))
+mdatasubmat3
+```
+
+```{r}
+mdatasubmat
+```
+
+```{r}
+ggplot(data=mdatasub, 
+       aes(y = `Flow`, 
+           x = `origSimFitted`))+
+  geom_point(color="black", fill="light blue")
+```
+
+```{r}
+postResample(mdatasub$Flow,mdatasub$origSimFitted)
+```
+
+# Destination Constrained Spatial Interaction Model
+
+```{r}
+destSim <- glm(Flow ~ Dest_code+log(vi1_origpop)+log(dist)-1, na.action = na.exclude, family = poisson(link = "log"), data = mdatasub)
+summary(destSim)
+```
+
+```{r}
+mdatasub$destSimFitted <- round(fitted(destSim),0)
+```
+
+```{r}
+mdatasubmat6 <- dcast(mdatasub, Orig_code ~ Dest_code, sum, value.var = "destSimFitted", margins=c("Orig_code", "Dest_code"))
+mdatasubmat6
+```
+
+```{r}
+mdatasubmat
+```
+
+```{r}
+ggplot(data=mdatasub, 
+       aes(y = `Flow`, 
+           x = `destSimFitted`))+
+  geom_point(color="black", fill="light blue")
+```
+
+Test the Goodness-of-Fit in exactly the same way as before:
+
+```{r}
+postResample(mdatasub$Flow,mdatasub$destSimFitted)
+```
+
+# Doubly Constrained Spatial Interaction Model
+
+Calibrate a Doubly Constrained Spatial Interaction Model by using glm()
+
+```{r}
+doubSim <- glm(Flow ~ Orig_code+Dest_code+log(dist), na.action = na.exclude, family = poisson(link = "log"), data = mdatasub)
+summary(doubSim)
+```
+
+We can examine how the constraints hold for destinations this time. Firstly, we will fitted the model and roundup the estimated values by using the code chunk below.
+
+```{r}
+mdatasub$doubsimFitted <- round(fitted(doubSim),0)
+```
+
+```{r}
+mdatasubmat7 <- dcast(mdatasub, Orig_code ~ Dest_code, sum, value.var = "doubsimFitted", margins=c("Orig_code", "Dest_code"))
+mdatasubmat7
+```
+
+Next, we will used the step you had learned in previous section to create pivot table to turn paired list into matrix.
+
+```{r}
+mdatasubmat
+```
+
+```{r}
+ggplot(data=mdatasub, 
+       aes(y = `Flow`, 
+           x = `doubsimFitted`))+
+  geom_point(color="black", fill="light blue")
+```
+
+
+```{r}
+postResample(mdatasub$Flow,mdatasub$doubsimFitted)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
