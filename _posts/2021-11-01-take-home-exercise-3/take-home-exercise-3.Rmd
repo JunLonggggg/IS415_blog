@@ -12,7 +12,7 @@ output:
 ---
 
 
-```{r setup, include=FALSE, eval=TRUE, echo=TRUE, message=FALSE,error=FALSE, fig.retina=3}
+```{r setup, include=FALSE, echo=TRUE, message=FALSE,error=FALSE, fig.retina=3}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -53,7 +53,7 @@ Sources:
 3. Importing Required Packages
 
 ```{r}
-packages = c("maptools","sf","raster","spatstat","tmap","tidyverse", 'sp','olsrr', 'corrplot', 'ggpubr', 'spdep', 'GWmodel','httr','jsonlite','RANN')
+packages = c("maptools","sf","raster","spatstat","tmap","tidyverse", 'sp','olsrr', 'corrplot', 'ggpubr', 'spdep', 'GWmodel','httr','jsonlite','nngeo','stringr')
 for(p in packages){
   if(!require(p, character.only = T)){
       install.packages(p)
@@ -88,7 +88,7 @@ supermarkets = do.call("rbind", supermarkets)
 supermarkets = supermarkets[c(6,7,8,9,10,11,12,13)]
 supermarkets = supermarkets[-1,]
 rownames(supermarkets) = 1:nrow(supermarkets)
-supermarkets
+glimpse(supermarkets)
 ```
 
 4.1.2 Hawker Centres
@@ -109,7 +109,7 @@ hawkerCentres = do.call("rbind", hawkerCentres)
 hawkerCentres = hawkerCentres[c(6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22)]
 hawkerCentres = hawkerCentres[-1,]
 rownames(hawkerCentres) = 1:nrow(hawkerCentres)
-hawkerCentres
+glimpse(hawkerCentres)
 ```
 Saving to csv in local machine for future uses:
 
@@ -254,8 +254,22 @@ tm_shape(resale_3414)+
 ```
 
 ```{r}
+resale_3414["prx_to_hawker"] = NA
+resale_3414["prx_to_trainStn"] = NA
+resale_3414["prx_to_supermarket"] = NA
+```
+
+```{r}
+prox_hawker = unlist(st_nn(resale_3414[1:nrow(resale_3414),], hawkerCentres_3414,k =1, returnDist = TRUE)[[2]])
+```
+
+
+
+```{r}
 resale_3414 <- resale_3414 %>%
-  mutate(`LOG_RESALE_PRICE` = log(resale_price))
+  mutate(`prx_to_hawker` = unlist(st_nn(resale_3414[1:nrow(resale_3414),], hawkerCentres_3414,k =1, returnDist = TRUE)[[2]])) %>% 
+    mutate(`prx_to_trainStn` = unlist(st_nn(resale_3414[1:nrow(resale_3414),], train_station_3414,k =1, returnDist = TRUE)[[2]])) %>% 
+  mutate(`prx_to_supermarket` = unlist(st_nn(resale_3414[1:nrow(resale_3414),], supermarkets_3414,k =1, returnDist = TRUE)[[2]]))
 ```
 
 
@@ -268,23 +282,372 @@ ggplot(data=resale_3414, aes(x=`resale_price`)) +
 
 ```{r}
 resale_3414 <- resale_3414 %>%
-  mutate(`LOG_RESALE_PRICE` = log(resale_price))
+  mutate(`log_resale_price` = log(resale_price))
 ```
 
 ```{r}
-ggplot(data=resale_3414, aes(x=`LOG_RESALE_PRICE`)) +
+resale_3414 <- resale_3414 %>%
+  mutate(`max_floor` = as.numeric(str_sub(resale_3414$storey_range,-1)))
+```
+
+```{r}
+resale_3414$floor_area_sqm = as.numeric(resale_3414$floor_area_sqm)
+```
+
+
+```{r}
+AREA_SQM <- ggplot(data=resale_3414, aes(x= `floor_area_sqm`)) +
   geom_histogram(bins=20, color="black", fill="light blue")
+FLOOR_LVL <- ggplot(data=resale_3414, aes(x= `max_floor`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+REMAINING_LEASE <- ggplot(data=resale_3414, aes(x= `remaininglease_years`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+PROX_HAWKER = ggplot(data=resale_3414, aes(x=`prx_to_hawker`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+PROX_TRAINSTN = ggplot(data=resale_3414, aes(x=`prx_to_trainStn`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+PROX_SUPERMARKET = ggplot(data=resale_3414, aes(x=`prx_to_supermarket`)) +
+  geom_histogram(bins=20, color="black", fill="light blue")
+
+ggarrange(AREA_SQM, FLOOR_LVL, REMAINING_LEASE, PROX_HAWKER, PROX_TRAINSTN, PROX_SUPERMARKET,  ncol = 3, nrow = 4)
+
+```
+
+```{r}
+tm_shape(mpsz_3414)+
+  tm_polygons() +
+tm_shape(resale_3414) +  
+  tm_dots(col = "resale_price",
+          alpha = 0.6,
+          style="quantile") +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+8. Hedonic Price Modelling
+
+8.1 Simple linear regression
+
+```{r}
+resale_3414.slr <- lm(formula=resale_price ~ floor_area_sqm, data = resale_3414)
+```
+
+```{r}
+summary(resale_3414.slr)
+```
+
+The output can be formulated into: 
+
+y = 527814.2 - 990.3 x floor_area_sqm
+
+The r-square value is 0.003426, which is signify that this formula is not a good gauge as the formula is only able to explain 0.3% of the data.
+
+However, the hypothesis testing with p-value much lower than 0.0001 suggest that we can confidently reject the null hypothesis that mean is a good estimator of resale_price and that the simple linear regression model above is a poor estimator for resale_price
+
+Both the coefficients have a p-value less than 0.0001 as well, thus we can confidently reject the null hypothesis that B0 and B1 are equal to 0, meaning that both B0 and B1 are good parameter estimates.
+
+```{r}
+ggplot(data=resale_3414,  
+       aes(x=`floor_area_sqm`, y=`resale_price`)) +
+  geom_point() +
+  geom_smooth(method = lm)
+```
+
+This shows that the relationship between floor_area_sqm and resale_price might not be able to approximate to a linear relationship.
+
+8.2 Multiple Linear Regression
+
+```{r}
+resale_tbl = as_tibble(resale_3414)
+```
+
+
+```{r}
+corrplot(cor(resale_tbl[, c("remaininglease_years","prx_to_hawker","prx_to_trainStn","prx_to_supermarket","max_floor","floor_area_sqm")]),
+         tl.pos = "td", tl.cex = 0.5, method = "number", type = "upper")
+```
+
+From the plot above, we can see that none of the independent variable are highly correlated to each other, therefore, we can use the variables.
+
+```{r}
+resale_tbl.mlr <- lm(formula = resale_price ~ remaininglease_years + floor_area_sqm  + max_floor + prx_to_hawker + prx_to_trainStn  + prx_to_supermarket, data=resale_3414)
+summary(resale_tbl.mlr)
+```
+
+From the statistical summary, we can see that not all variables are statistically significant, thus we will need to revise the model by removing these statistically insignificant variables.
+Namely: 
+* max_floor
+
+```{r}
+resale_tbl.mlr1 <- lm(formula = resale_price ~ remaininglease_years + floor_area_sqm + prx_to_hawker + prx_to_trainStn  + prx_to_supermarket, data=resale_3414)
+ols_regress(resale_tbl.mlr1)
+```
+
+#### Assumptions of linear regression models
+
+1. Linearity Assumption: Relationship between dependent and independent variables is (approximately) linear.
+
+2. Normality Assumption: The residual errors are assumed to be normally distributed.
+
+3. Homogenuity of residual variance: The residuals are assumed to have a constant variance (homoscedasticity).
+
+4. Residuals are independent to each other
+
+5. (Optional) Errors are normally distributed with a population mean of 0.
+
+#### Checking for multicollinearity
+
+We will explore the use of olsrr, a package specially programmed for performing Ordinary Least Squared (OLS) regression.
+
+Some of the useful methods includes:
+* comprehensive regression output
+* residual diagnostics
+* measures of influence
+* heteroskedasticity tests
+* collinearity diagnostics
+* model fit assessment
+* variable contribution assessment
+* variable selection procedures
+
+We will be using ols_vid_tol() method from olsrr package for multicollinearity.
+
+```{r}
+ols_vif_tol(resale_tbl.mlr1)
+```
+
+A good judgement of multicollinearity would be if the VIF is above 10. Since none of the variables exceed the VIF value of 10, we can safely conclude that there are no sign of multicollinearity among the independent variables.
+
+#### Testing for non-linearity
+
+In multiple linear regression, we need to test for linearity and additivity of the relationship between dependent and independent variables. We can do so using ols_plot_resid_fit() from olsrr package to perform linearity assumption test.
+
+```{r}
+ols_plot_resid_fit(resale_tbl.mlr1)
+```
+
+From the figure above, we can see that the residual roughly revolves around the 0 line, thus we can safely conclude that the relationships between the dependent and the independent variables are linear.
+
+#### Testing for normality assumption
+
+Next, we still need to test if the residual errors are normally distributed using ols_plot_resid_hist() to perform normality assumption test.
+
+```{r}
+ols_plot_resid_hist(resale_tbl.mlr1)
+```
+
+The figure above shows that the residual of the multiple linear regression model resemble a rather flat normal distribution.
+
+#### Testing for Spatial Autocorrelation
+
+The hedonic model we are building are using geographically referenced attribute, thus we should visualize the residual of the hedonic pricing model.
+
+To perform spatial autocorrelation test, we will have to convert condo_resale.sf into SpatialPointDataFrame.
+
+```{r}
+mlr.output <- as.data.frame(resale_tbl.mlr1$residuals)
+```
+
+Joining the newly created data frame with condo_resale.sf
+
+```{r}
+resale_tbl.res.sf <- cbind(resale_3414, 
+                        resale_tbl.mlr1$residuals) %>%
+rename(`MLR_RES` = `resale_tbl.mlr1.residuals`)
+```
+
+Converting the sf object into SpatialPointDataFrame using spdep package:
+
+```{r}
+resale_tbl.sp <- as_Spatial(resale_tbl.res.sf)
+resale_tbl.sp
+```
+
+Now we can plot a interactive visualization of the residual on a map itself. 
+
+First, setting the tmap mode to "view", or interactive.
+
+```{r}
+tmap_mode("view")
+```
+
+Plotting the geographically referenced residual:
+
+```{r}
+tmap_options(check.and.fix = TRUE) 
+tm_shape(mpsz_3414)+
+  tm_polygons(alpha = 0.4) +
+tm_shape(resale_tbl.res.sf) +  
+  tm_dots(col = "MLR_RES",
+          alpha = 0.6,
+          style="quantile") +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+Setting back the tmap mode to "plot":
+
+```{r}
+tmap_mode("plot")
+```
+
+The above plot does show signs of spatial autocorrelation since there are some parts with concentrated high MLR_RES values, however, to be more definitive, we will use Moran's I test to confirm our observation.
+
+First, computing the distance-based weight matrix using dnearneigh() function of spdep:
+
+```{r cache=TRUE}
+nb <- dnearneigh(coordinates(resale_tbl.sp), 0, 1500, longlat = FALSE)
+summary(nb)
+```
+
+Next, nb2listw() of spdep packge will be used to convert the output neighbours lists (i.e. nb) into a spatial weights.
+
+```{r cache=TRUE, eval=FALSE}
+nb_lw <- nb2listw(nb, style = 'W')
+summary(nb_lw)
+```
+
+Next, lm.morantest() of spdep package will be used to perform Moran’s I test for residual spatial autocorrelation
+
+```{r cache=TRUE, eval=FALSE}
+lm.morantest(resale_tbl.mlr1, nb_lw)
+```
+
+Based on the global moran’s I test, the residual spatial autocorrelation shows that it’s p-value is less than 2.2 x 10^-16, which is a significantly small value, and is much lower than the alpha value of 0.05, hence we will reject the null hypothesis that the residuals are randomly distribute, in other words, the residuals resembles cluster distributions.
+
+## Building Hedonic Pricing Models using GWmodel
+
+In this section, we will learn how to model hedonic pricing using both the fixed and adaptive bandwidth schemes
+
+### Building Fixed Bandwidth GWR Model
+
+#### Computing Fixed Bandwidth
+
+Firstly, we will be using bw.gwr() of the GWmodel package to determine the optimal fixed bandwidth to use in the model, we will set the argument, adaptive, to FALSE since we will explore fixed bandwidth first.
+
+There are two approaches to determine the stopping rule.
+1. CV cross-validation approach
+2. AIC corrected approach
+
+```{r cache=TRUE, eval=FALSE}
+bw.fixed <- bw.gwr(formula = resale_price ~ remaininglease_years + floor_area_sqm + prx_to_hawker + prx_to_trainStn  + prx_to_supermarket, data=resale_tbl.sp, approach="CV", kernel="gaussian", adaptive=FALSE, longlat=FALSE)
+```
+
+
+#### GWmodel method - fixed bandwith
+
+Now we can use the code chunk below to calibrate the gwr model using fixed bandwidth and gaussian kernel.
+
+```{r cache=TRUE, eval=FALSE}
+gwr.fixed <- gwr.basic(formula = resale_price ~ remaininglease_years + floor_area_sqm + prx_to_hawker + prx_to_trainStn  + prx_to_supermarket, data=resale_tbl.sp, bw=bw.fixed, kernel = 'gaussian', longlat = FALSE)
+```
+
+The output is saved in a list of class “gwrm”. The code below can be used to display the model output.
+
+```{r cache=TRUE, eval=FALSE}
+gwr.fixed
+```
+
+
+Now, let's move onto explore Adaptive bandwidth GWR modelling instead.
+
+### Building Adaptive Bandwidth GWR Model
+
+In this section, we will calibrate the gwr-absed hedonic pricing model by using adaptive bandwidth approach.
+
+#### Computing the adaptive bandwidth
+
+We will be using bw.ger() to determine the recommended data point to use.
+
+The code chunk used look very similar to the one used to compute the fixed bandwidth except the adaptive argument has changed to TRUE.
+
+```{r cache=TRUE, eval=FALSE}
+bw.adaptive <- bw.gwr(formula = resale_price ~ remaininglease_years + floor_area_sqm + prx_to_hawker + prx_to_trainStn  + prx_to_supermarket, data=resale_tbl.sp, approach="CV", kernel="gaussian",
+adaptive=TRUE, longlat=FALSE)
+```
+
+
+#### Constructing the adaptive bandwidth gwr model
+
+Now, we can calibrate the gwr-based hedonic pricing model by using adaptive bandwidth and gaussian kernel.
+
+```{r cache=TRUE, eval=FALSE}
+gwr.adaptive <- gwr.basic(formula = resale_price ~ remaininglease_years + floor_area_sqm + prx_to_hawker + prx_to_trainStn  + prx_to_supermarket, data=resale_tbl.sp, bw=bw.adaptive, kernel = 'gaussian', adaptive=TRUE, longlat = FALSE)
+
+```
+
+```{r cache=TRUE, eval=FALSE}
+gwr.adaptive
 ```
 
 
 
+## Visualizing the GWR output
 
+### Converting SDF into sf data.frame
 
+To visualize the fields in SDF object, we need to convert the output into sf data.frame first:
 
+```{r cache=TRUE, eval=FALSE}
+resale_3414.adaptive <- st_as_sf(gwr.adaptive$SDF) %>%
+  st_transform(crs=3414)
+```
 
+Setting the projection:
 
+```{r cache=TRUE, eval=FALSE}
+resale_3414.adaptive.svy21 <- st_transform(resale_3414.adaptive, 3414)
+resale_3414.adaptive.svy21
+```
 
+```{r cache=TRUE, eval=FALSE}
+gwr.adaptive.output <- as.data.frame(gwr.adaptive$SDF)
+resale_3414.adaptive <- cbind(resale_tbl.res.sf, as.matrix(gwr.adaptive.output))
+```
 
+```{r cache=TRUE, eval=FALSE}
+glimpse(resale_3414.adaptive)
+```
 
+```{r cache=TRUE, eval=FALSE}
+summary(gwr.adaptive$SDF$yhat)
+```
+
+### Visualising local R2
+
+Interactive display of the point symbols on a map:
+
+```{r cache=TRUE, eval=FALSE}
+tmap_mode("view")
+tm_shape(mpsz_3414)+
+  tm_polygons(alpha = 0.1) +
+tm_shape(resale_3414.adaptive) +  
+  tm_dots(col = "Local_R2",
+          border.col = "gray60",
+          border.lwd = 1) +
+  tm_view(set.zoom.limits = c(11,14))
+```
+
+Setting back tmap mode to "plot"
+
+```{r cache=TRUE, eval=FALSE}
+tmap_mode("plot")
+```
+
+### By URA Planning Region
+
+```{r cache=TRUE, eval=FALSE}
+tmap_mode("view")
+tm_shape(mpsz_3414[mpsz_3414$REGION_N=="CENTRAL REGION", ])+
+  tm_polygons()+
+tm_shape(condo_resale.sf.adaptive) + 
+  tm_bubbles(col = "Local_R2",
+           size = 0.15,
+           border.col = "gray60",
+           border.lwd = 1)
+```
+
+Setting back tmap mode to "plot"
+
+```{r cache=TRUE, eval=FALSE}
+tmap_mode("plot")
+```
 
 
